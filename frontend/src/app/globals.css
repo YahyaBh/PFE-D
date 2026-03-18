@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Fluid Brand Palette - Soft & Premium */
+  --background: 40 30% 98%;      /* Warm Sand White */
+  --foreground: 214 73% 15%;     /* Deep Navy Midnight */
+  
+  --card: 0 0% 100%;
+  --card-foreground: 214 73% 15%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 214 73% 15%;
+  
+  --primary: 214 73% 32%;        /* #16498d - Fluid Primary */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 48 100% 50%;      /* #f0b90b - Golden Accent */
+  --secondary-foreground: 214 73% 15%;
+  
+  --muted: 40 20% 94%;
+  --muted-foreground: 214 30% 45%;
+  
+  --accent: 48 100% 96%;
+  --accent-foreground: 214 73% 32%;
+  
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 30% 90%;
+  --input: 214 30% 90%;
+  --ring: 214 73% 32%;
+  
+  --radius: 2.5rem;             /* UNIFORM FLUID CURVATURE */
+}
+
+.dark {
+  --background: 214 73% 8%;      /* Deep space navy */
+  --foreground: 40 30% 98%;
+  
+  --card: 214 73% 12%;
+  --card-foreground: 40 30% 98%;
+  
+  --popover: 214 73% 10%;
+  --popover-foreground: 40 30% 98%;
+  
+  --primary: 48 100% 50%;        /* Gold becomes primary in dark mode for luxury */
+  --primary-foreground: 214 73% 8%;
+  
+  --secondary: 214 73% 20%;
+  --secondary-foreground: 48 100% 50%;
+  
+  --muted: 214 73% 15%;
+  --muted-foreground: 214 30% 70%;
+  
+  --accent: 214 73% 18%;
+  --accent-foreground: 48 100% 50%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 73% 18%;
+  --input: 214 73% 18%;
+  --ring: 48 100% 50%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight leading-[1.1];
+  }
+}
+
+@layer utilities {
+  .font-sans {
+    font-family: 'Inter', sans-serif;
+  }
+  .font-display {
+    font-family: 'Outfit', sans-serif;
+  }
+  
+  /* Fluid Component Tokens */
+  .fluid-card {
+    @apply rounded-[3rem] border-none shadow-[0_45px_100px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_45px_100px_-20px_rgba(0,0,0,0.4)] transition-all;
+  }
+  
+  .fluid-button {
+    @apply bg-primary text-primary-foreground rounded-full font-bold px-8 py-4 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20;
+  }
+
+  .fluid-glass {
+    @apply bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-white/5;
+  }
+
+  .text-fluid-hero {
+    @apply text-6xl md:text-8xl font-black tracking-tight leading-none;
+  }
+  
+  .organic-shadow {
+    box-shadow: 0 25px 50px -12px rgba(22, 73, 141, 0.15);
+  }
+
+  /* Break the Grid: Asymmetry Helpers */
+  .spatially-staggered {
+    @apply even:translate-y-12 odd:-translate-y-4;
+  }
+
+  .fluid-input {
+      @apply w-full bg-background border border-border rounded-full p-6 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all placeholder:text-muted-foreground/40;
+  }
+}
+
+/* Smooth, Organic Transitions */
+* {
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Fluid Floating Animation */
+@keyframes fluid-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.animate-fluid-float {
+  animation: fluid-float 6s ease-in-out infinite;
+}
+
+/* Moroccan Fluid Pattern Background */
+.bg-zellige-soft {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2316498d' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM1 1l-1 1h2L1 1zm57 0l-1 1h2l-1-1zm1 57l-1 1h2l-1-1zM1 58l-1 1h2l-1-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}

@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  phone     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  wallet    Wallet?
+  sessions  DeviceSession[]
+}
+
+model Transaction {
+  id               String   @id @default(uuid())
+  senderWalletId   String?
+  receiverWalletId String?
+  amount           Float
+  currency         String
+  type             String   // P2P_TRANSFER, MERCHANT_PAYMENT, DEPOSIT, CARD_PAYMENT
+  status           String   // PENDING, COMPLETED, FAILED
+  createdAt        DateTime @default(now())
+}
+
+model DeviceSession {
+  id        String   @id @default(uuid())
+  device    String
+  ip        String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  lastUsed  DateTime @default(now())
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  balance   Float    @default(0.0)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
