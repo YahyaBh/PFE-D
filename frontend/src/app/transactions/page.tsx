@@ -125,16 +125,20 @@ export default function TransactionsPage() {
   const exportCSV = () => {
     if (transactions.length === 0) return;
     const headers = ["Date", "Type", "Status", "Direction", "Counterparty", "Amount", "Currency", "Note"];
-    const rows = transactions.map(t => [
-      new Date(t.created_at).toLocaleDateString("en-GB"),
-      t.type,
-      t.status,
-      t.direction,
-      t.direction === "OUT" ? (t.receiverName || t.receiverEmail || "—") : (t.senderName || t.senderEmail || "—"),
-      t.amount,
-      t.currency || "MAD",
-      t.note || ""
-    ]);
+    const rows = transactions.map(t => {
+      const d = new Date(t.created_at || t.createdAt);
+      const dateStr = isNaN(d.getTime()) ? "Unknown" : d.toLocaleDateString("en-GB");
+      return [
+        dateStr,
+        t.type,
+        t.status,
+        t.direction,
+        t.direction === "OUT" ? (t.receiverName || t.receiverEmail || "—") : (t.senderName || t.senderEmail || "—"),
+        t.amount,
+        t.currency || "MAD",
+        t.note || ""
+      ];
+    });
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -334,7 +338,10 @@ export default function TransactionsPage() {
                         <div className="space-y-1">
                             <div className="flex items-center gap-4">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40">
-                                    {new Date(t.created_at).toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' })} • {t.status}
+                                    {(() => {
+                                        const d = new Date(t.created_at || t.createdAt);
+                                        return isNaN(d.getTime()) ? 'Date Unknown' : d.toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' });
+                                    })()} • {t.status}
                                 </p>
                                 {t.status === 'FAILED' && <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />}
                             </div>

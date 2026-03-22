@@ -224,7 +224,7 @@ function CardsContent() {
         </header>
 
         {/* ───── Card Grid ───── */}
-        {cards.length === 0 ? (
+        {cards.length === 0 && !loading ? (
           <div className="relative p-24 text-center fluid-card bg-white dark:bg-card overflow-hidden group">
             <div className="absolute inset-0 bg-zellige-soft opacity-10" />
             <div className="relative z-10">
@@ -249,6 +249,7 @@ function CardsContent() {
               <VirtualCard 
                 key={card.id}
                 {...card}
+                cardHolder={card.cardHolder}
                 onToggleStatus={handleToggleStatus}
                 onDelete={handleDeleteCard}
                 onRegenerate={handleRegenerateCard}

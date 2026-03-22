@@ -48,44 +48,56 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative background element */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/5 -skew-x-12 translate-x-1/2" />
+    <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center p-6 relative overflow-hidden bg-zellige-soft">
+      {/* Dynamic Background Accents */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute -bottom-24 -right-24 w-[30rem] h-[30rem] bg-secondary/10 rounded-full blur-[150px]" />
       
-      {error && <Toast message={error} onClose={() => setError("")} />}
+      {error && <Toast message={error} type="error" onClose={() => setError("")} />}
       
-      <div className="max-w-xl w-full relative z-10">
-        <div className="p-12 bg-background border-8 border-foreground shadow-[24px_24px_0_0_rgba(0,0,0,1)] dark:shadow-[24px_24px_0_0_white]">
-          <div className="mb-12">
-            <div className="w-20 h-20 border-4 border-foreground bg-white flex items-center justify-center mb-10 shadow-[8px_8px_0_0_rgba(0,0,0,1)] p-4">
+      <div className="max-w-xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
+        <div className="fluid-glass rounded-[3rem] p-12 md:p-16 border border-white/20 shadow-2xl space-y-12">
+          {/* Header & Logo */}
+          <div className="text-center space-y-8">
+            <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center mx-auto p-5 shadow-xl shadow-primary/10 hover:rotate-[360deg] transition-all duration-1000">
               <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-6xl font-black text-foreground tracking-tighter uppercase leading-none">Welcome Back</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-foreground/40 mt-6">Secure Login Protocol</p>
+            <div className="space-y-3">
+                <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-none">
+                    Welcome <span className="text-primary italic">Back</span>
+                </h1>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-foreground/30">Secure Authentication Protocol</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 ml-1">Email Address</label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 px-6">
+                  <span className="w-2 h-2 rounded-full bg-primary/20" />
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Email Identity</label>
+              </div>
               <input
                 type="email"
                 required
-                className="stark-input"
+                className="fluid-input"
                 placeholder="YOURNAME@DOMAIN.COM"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between ml-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Password</label>
-                <Link href="#" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Forgot Password?</Link>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-6">
+                <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-primary/20" />
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Security Key</label>
+                </div>
+                <Link href="#" className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-secondary transition-colors">Recover Access</Link>
               </div>
               <input
                 type="password"
                 required
-                className="stark-input"
+                className="fluid-input"
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -95,33 +107,44 @@ function LoginContent() {
             <button
               type="submit"
               disabled={loading}
-              className="stark-button w-full py-8 flex items-center justify-center gap-4 mt-6"
+              className="fluid-button w-full h-20 flex items-center justify-center gap-4 text-sm tracking-[0.2em] uppercase shadow-2xl shadow-primary/20"
             >
-              {loading ? "Authorizing..." : <>Login Now <ChevronRight className="w-6 h-6" /></>}
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>Enter Portal <ChevronRight className="w-5 h-5" /></>
+              )}
             </button>
           </form>
 
-          <div className="mt-12 pt-12 border-t-4 border-foreground border-dashed">
+          {/* Biometric Integration */}
+          <div className="pt-8 space-y-8 border-t border-foreground/5">
             <button 
               onClick={() => setShowBiometric(true)}
-              className="w-full flex items-center justify-center p-6 border-4 border-foreground bg-foreground text-background hover:bg-background hover:text-foreground transition-all gap-4 font-black uppercase tracking-widest text-xs"
+              className="w-full h-20 rounded-full bg-foreground/5 text-foreground flex items-center justify-center gap-5 hover:bg-foreground hover:text-background transition-all group overflow-hidden relative"
             >
-              <Fingerprint className="w-6 h-6" />
-              Biometric Sign In
+              <div className="absolute inset-0 bg-primary/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+              <Fingerprint className="w-7 h-7 relative z-10 transition-transform group-hover:scale-110" />
+              <span className="font-black uppercase tracking-widest text-[11px] relative z-10">Biometric Sign In</span>
             </button>
-          </div>
 
-          <p className="text-center mt-12 text-[10px] font-black uppercase tracking-widest text-foreground/40">
-            No account yet?{" "}
-            <Link href="/register" className="text-primary hover:underline ml-2">
-              Create Account
-            </Link>
-          </p>
+            <div className="flex flex-col items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground/20 italic">
+                    New to Marjane Ecosystem?
+                </p>
+                <Link 
+                    href="/register" 
+                    className="px-10 py-4 rounded-full border border-primary/10 text-primary font-black uppercase tracking-widest text-[10px] hover:bg-primary/5 transition-all"
+                >
+                    Create Identity
+                </Link>
+            </div>
+          </div>
         </div>
         
-        {/* Decorative corner tag */}
-        <div className="absolute -top-4 -right-4 w-20 h-20 bg-secondary border-4 border-foreground flex items-center justify-center font-black text-xl rotate-12 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-            !
+        {/* Subtle Decorative Flow */}
+        <div className="mt-12 text-center opacity-20 pointer-events-none">
+            <p className="text-[8px] font-black uppercase tracking-[1em]">MARJANE // WEB3 // WALLET</p>
         </div>
       </div>
     </div>

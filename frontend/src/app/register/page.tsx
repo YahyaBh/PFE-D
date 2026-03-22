@@ -59,49 +59,59 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative background element */}
-      <div className="absolute bottom-0 left-0 w-1/2 h-full bg-secondary/5 skew-x-12 -translate-x-1/2" />
+    <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center p-6 relative overflow-hidden bg-zellige-soft">
+      {/* Dynamic Background Accents */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute -bottom-24 -right-24 w-[30rem] h-[30rem] bg-secondary/10 rounded-full blur-[150px]" />
       
-      {error && <Toast message={error} onClose={() => setError("")} />}
+      {error && <Toast message={error} type="error" onClose={() => setError("")} />}
       
-      <div className="max-w-2xl w-full relative z-10">
-        <div className="p-12 bg-background border-8 border-foreground shadow-[24px_24px_0_0_rgba(0,0,0,1)] dark:shadow-[24px_24px_0_0_white]">
-          <div className="mb-12">
-            <div className="w-20 h-20 border-4 border-foreground bg-white flex items-center justify-center mb-10 shadow-[8px_8px_0_0_rgba(0,0,0,1)] p-4">
+      <div className="max-w-2xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
+        <div className="fluid-glass rounded-[3rem] p-12 md:p-16 border border-white/20 shadow-2xl space-y-12">
+          {/* Header & Logo */}
+          <div className="text-center space-y-8">
+            <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center mx-auto p-5 shadow-xl shadow-primary/10 hover:rotate-[360deg] transition-all duration-1000">
               <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-6xl font-black text-foreground tracking-tighter uppercase leading-none">
-              {step === "info" ? "Create Account" : "Secure Identity"}
-            </h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-foreground/40 mt-6">
-              {step === "info" 
-                ? "Initialize your new wallet" 
-                : "Enrollment via biometric scan"}
-            </p>
+            <div className="space-y-3">
+                <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-none">
+                  {step === "info" ? "Establish Identity" : "Secure Node"}
+                </h1>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-foreground/30">
+                  {step === "info" 
+                    ? "Initialize your new digital wallet" 
+                    : "Biometric enrollment v2.0 active"}
+                </p>
+            </div>
           </div>
 
           {step === "info" ? (
             <form onSubmit={handleInfoSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Full Name</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 px-6">
+                      <span className="w-2 h-2 rounded-full bg-primary/20" />
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Legal Name</label>
+                  </div>
                   <input
                     type="text"
                     required
-                    className="stark-input"
+                    className="fluid-input"
                     placeholder="ENTER NAME"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Email Address</label>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 px-6">
+                      <span className="w-2 h-2 rounded-full bg-primary/20" />
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Email Handle</label>
+                  </div>
                   <input
                     type="email"
                     required
-                    className="stark-input"
+                    className="fluid-input"
                     placeholder="YOURNAME@DOMAIN.COM"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -109,8 +119,11 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Phone Number</label>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-6">
+                    <span className="w-2 h-2 rounded-full bg-primary/20" />
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Phone Frequency</label>
+                </div>
                 <PhoneInput
                   required
                   value={formData.phone}
@@ -118,12 +131,15 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Secure Password</label>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-6">
+                    <span className="w-2 h-2 rounded-full bg-primary/20" />
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Secure Access Key</label>
+                </div>
                 <input
                   type="password"
                   required
-                  className="stark-input"
+                  className="fluid-input"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -132,48 +148,57 @@ export default function RegisterPage() {
 
               <button
                 type="submit"
-                className="stark-button w-full py-8 flex items-center justify-center gap-4 mt-6"
+                className="fluid-button w-full h-20 flex items-center justify-center gap-4 text-sm tracking-[0.2em] uppercase shadow-2xl shadow-primary/20 mt-4"
               >
-                Next: Identity Verification <ChevronRight className="w-6 h-6" />
+                Next Step: Biometrics <ChevronRight className="w-5 h-5" />
               </button>
             </form>
           ) : (
-            <div className="space-y-10 animate-in fade-in slide-in-from-right-10 duration-500">
-              <div className="border-8 border-foreground shadow-[16px_16px_0_0_rgba(0,0,0,1)] bg-background overflow-hidden relative group">
+            <div className="space-y-10 animate-in fade-in slide-in-from-right-10 duration-700">
+              <div className="rounded-[3rem] overflow-hidden relative group border border-white/10 shadow-2xl bg-black/40 backdrop-blur-md">
                 <FaceAuth mode="register" onCapture={handleFaceCapture} />
-                <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 animate-pulse" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-primary/40 animate-pulse" />
               </div>
               
               <div className="space-y-6">
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !faceDescriptor}
-                  className="stark-button w-full py-8 flex items-center justify-center gap-4"
+                  className="fluid-button w-full h-20 flex items-center justify-center gap-4 text-sm tracking-[0.2em] uppercase shadow-2xl shadow-primary/20"
                 >
-                  {loading ? "Establishing Identity..." : <>Confirm Registration <CheckCircle2 className="w-6 h-6" /></>}
+                  {loading ? (
+                    <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>Establish Connection <CheckCircle2 className="w-5 h-5" /></>
+                  )}
                 </button>
                 
                 <button
                   onClick={() => setStep("info")}
-                  className="w-full text-foreground/40 hover:text-foreground text-[10px] font-black uppercase tracking-widest transition-colors py-2"
+                  className="w-full text-foreground/30 hover:text-primary text-[10px] font-black uppercase tracking-[0.5em] transition-all py-2"
                 >
-                  RETURN_TO_ENTITY_DATA
+                  Return to Matrix Data
                 </button>
               </div>
             </div>
           )}
 
-          <p className="text-center mt-12 text-[10px] font-black uppercase tracking-widest text-foreground/40">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline ml-2">
-              Sign In
-            </Link>
-          </p>
+          <div className="pt-12 flex flex-col items-center gap-6 border-t border-foreground/5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground/20 italic">
+                    Already a recognized entity?
+                </p>
+                <Link 
+                    href="/login" 
+                    className="px-12 py-4 rounded-full bg-foreground/5 text-foreground font-black uppercase tracking-widest text-[10px] hover:bg-foreground hover:text-background transition-all"
+                >
+                    Sign In Portal
+                </Link>
+          </div>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute -bottom-6 -left-6 px-6 py-2 bg-foreground text-background font-black text-[10px] tracking-[0.4em] transform -rotate-2">
-            SECURE ENROLLMENT V2.0
+        
+        {/* Subtle Decorative Flow */}
+        <div className="mt-12 text-center opacity-20 pointer-events-none">
+            <p className="text-[8px] font-black uppercase tracking-[1em]">MARJANE // SECURE // ENROLLMENT</p>
         </div>
       </div>
     </div>

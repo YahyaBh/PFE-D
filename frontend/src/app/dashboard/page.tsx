@@ -339,7 +339,7 @@ export default function DashboardPage() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[100px] opacity-20 animate-fluid-float" />
             
             <div className="flex flex-col items-center justify-center h-full text-center relative z-10">
-                <div className="flex items-center gap-4 overflow-x-auto pb-8 scrollbar-hide w-full justify-center px-4">
+                <div className="flex items-center gap-4 overflow-x-auto pt-4 pb-8 scrollbar-hide w-full justify-center px-4">
                     {(user.wallets || []).map((w: any) => (
                         <button
                             key={w.currency}
@@ -542,7 +542,10 @@ export default function DashboardPage() {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40">
-                                        {new Date(t.createdAt).toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' })} • {t.status}
+                                        {(() => {
+                                            const d = new Date(t.created_at || t.createdAt);
+                                            return isNaN(d.getTime()) ? 'Date Unknown' : d.toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' });
+                                        })()} • {t.status}
                                     </p>
                                     <h5 className="text-2xl font-black uppercase tracking-tight text-foreground transition-colors group-hover:text-primary">
                                         {t.type === 'PAYMENT' ? 'Payment' :

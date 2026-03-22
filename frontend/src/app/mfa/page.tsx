@@ -219,6 +219,29 @@ function MFAContent() {
     }
   };
 
+  const handleResend = async () => {
+    if (!userId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/resend-mfa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resend code");
+      
+      // Clear inputs for fresh start
+      setCode(["", "", "", "", "", ""]);
+      setError("Success: A fresh code has been sent to your email."); 
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const finalCode = code.join("");
@@ -330,7 +353,11 @@ function MFAContent() {
                 </button>
                 <div className="pt-8 border-t border-border space-y-4">
                   <p className="text-muted-foreground text-sm font-medium">Didn't receive a code?</p>
-                  <button type="button" className="text-primary hover:text-primary/80 font-black text-[11px] uppercase tracking-widest transition-colors decoration-primary/30 hover:underline underline-offset-4">
+                  <button 
+                    type="button" 
+                    onClick={handleResend}
+                    className="text-primary hover:text-primary/80 font-black text-[11px] uppercase tracking-widest transition-colors decoration-primary/30 hover:underline underline-offset-4"
+                  >
                     Resend Verification Email
                   </button>
                 </div>

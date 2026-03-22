@@ -29,6 +29,7 @@ router.get('/health', (req, res) => {
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.post('/auth/verify-mfa', authController.verifyMFA);
+router.post('/auth/resend-mfa', authController.resendMFA);
 router.post('/auth/verify-token', authController.verifyToken);
 router.get('/auth/me', auth, authController.getMe);
 router.get('/auth/user/:userId/face-descriptor', authController.getFaceDescriptor);

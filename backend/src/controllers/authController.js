@@ -497,11 +497,53 @@ const getFaceDescriptor = async (req, res) => {
   }
 };
 
+const resendMFA = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'UserId is required' });
+    }
+
+    const [users] = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate NEW dynamic MFA code
+    const mfaCode = generateCode();
+
+    // Update DB with NEW code and fresh expiry (1 hour)
+    try {
+      await db.query(
+        'UPDATE users SET mfa_code = ?, mfa_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?',
+        [mfaCode, userId]
+      );
+    } catch (updateErr) {
+      console.error('Failed to update MFA code during resend:', updateErr);
+      return res.status(500).json({ error: 'Failed to generate new MFA code' });
+    }
+
+    // SIMULATION: Log codes to console
+    console.log('--- MFA CODE RESENT ---');
+    console.log(`Email (${user.email}): ${mfaCode}`);
+    console.log('-----------------------');
+
+    res.json({ message: 'A new MFA code has been sent to your email.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error during MFA resend' });
+  }
+};
+
 module.exports = {
   register,
   login,
   verifyMFA,
   verifyToken,
+  resendMFA,
   getMe,
   getFaceDescriptor
 };

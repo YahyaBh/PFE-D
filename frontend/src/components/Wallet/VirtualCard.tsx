@@ -15,6 +15,7 @@ interface VirtualCardProps {
   cvv: string;
   expiryDate: string;
   cardName: string;
+  cardHolder?: string;
   status: "ACTIVE" | "FROZEN" | "TERMINATED";
   onToggleStatus: (id: string, newStatus: "ACTIVE" | "FROZEN") => void;
   onDelete: (id: string) => void;
@@ -30,6 +31,7 @@ export default function VirtualCard({
   cvv,
   expiryDate,
   cardName,
+  cardHolder,
   status,
   onToggleStatus,
   onDelete,
@@ -51,17 +53,20 @@ export default function VirtualCard({
     const cleanNumber = number.replace(/\s/g, '');
     if (cleanNumber.startsWith('4')) return { 
         name: 'Visa', 
-        gradient: 'from-[#0a1a3a] to-[#16498d]',
+        type: 'DEBIT',
+        gradient: 'from-[#1a1c2c] to-[#4a192c]', 
         accent: 'text-blue-400' 
     };
     if (cleanNumber.startsWith('5')) return { 
         name: 'Mastercard', 
-        gradient: 'from-[#2d1a0a] to-[#8d4916]',
+        type: 'VIRTUAL',
+        gradient: 'from-[#0f172a] to-[#334155]',
         accent: 'text-orange-400' 
     };
     return { 
         name: 'Marjane', 
-        gradient: 'from-[#1a1a1a] to-[#2d2d2d]',
+        type: 'NODE',
+        gradient: 'from-[#111111] to-[#222222]',
         accent: 'text-secondary' 
     };
   };
@@ -76,65 +81,100 @@ export default function VirtualCard({
 
   return (
     <div className="w-full max-w-[420px] transition-all duration-700 group perspective-mid">
+      {/* Visual Card - Premium Fluid Design */}
       <div className={cn(
-        "relative rounded-[3rem] aspect-[1.586/1] transition-all duration-700 overflow-hidden shadow-2xl group-hover:shadow-primary/40",
+        "relative rounded-[2.5rem] aspect-[1.586/1] transition-all duration-700 overflow-hidden shadow-2xl group-hover:shadow-primary/40",
         isFrozen ? "opacity-60 grayscale scale-95" : "hover:-translate-y-4 hover:rotate-1",
-        "bg-gradient-to-br text-white",
+        "bg-gradient-to-br text-white border border-white/10",
         brandConfig.gradient
       )}>
-        {/* Organic Textures */}
-        <div className="absolute -right-20 -top-20 w-[30rem] h-[30rem] bg-white opacity-[0.03] rounded-full blur-3xl group-hover:opacity-[0.05] transition-opacity duration-1000" />
-        <div className="absolute -left-20 -bottom-20 w-[30rem] h-[30rem] bg-secondary/10 opacity-10 rounded-full blur-3xl" />
-        <div className="absolute inset-0 bg-zellige-soft opacity-[0.03] pointer-events-none" />
+        {/* Professional Textures */}
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.05] pointer-events-none" />
+        <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/5 rounded-full blur-[80px]" />
+        <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-primary/10 rounded-full blur-[80px]" />
         
-        <div className="relative z-10 h-full p-16 flex flex-col justify-between">
+        <div className="relative z-10 h-full p-8 flex flex-col justify-between">
+          {/* Header */}
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <p className="text-[8px] font-black uppercase tracking-[0.6em] text-white/30">Virtual Card</p>
-              <h3 className="text-2xl font-black tracking-tighter uppercase leading-none">{cardName}</h3>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+                <p className="text-[7px] font-black uppercase tracking-[0.4em] text-white/50">{brandConfig.type} NODE ACTIVE</p>
+              </div>
+              <h3 className="text-xl font-black tracking-tighter uppercase leading-none opacity-90">{cardName}</h3>
             </div>
-             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center backdrop-blur-md border border-white/5 p-2 shadow-lg">
-                    <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/10 p-2">
+                    <img src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
                 </div>
+            </div>
+          </div>
+
+          {/* Asset Chip & Wireless */}
+          <div className="flex items-center justify-between mt-2">
+             <div className="flex items-center gap-4">
+                {/* SIM Chip Visual */}
+                <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 relative overflow-hidden shadow-inner">
+                    <div className="absolute inset-0 opacity-20 border-[0.5px] border-black/50 grid grid-cols-3 grid-rows-2" />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 border-[1px] border-black/20 rounded-sm" />
+                </div>
+                {/* Wireless Icon */}
+                <div className="rotate-90 opacity-40">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 8a10 10 0 0 1 14 0" /><path d="M8.5 11.5a5 5 0 0 1 7 0" /><path d="M12 15v.01" />
+                    </svg>
+                </div>
+             </div>
+             <div className="text-right">
+                <p className="text-[7px] font-black tracking-[0.2em] text-white/30 uppercase">Balance</p>
+                <p className="text-xl font-black tracking-tighter">{balance.toLocaleString()} <span className="text-[10px] text-secondary italic">MAD</span></p>
              </div>
           </div>
 
-          <div className="space-y-8">
-            <div className="flex items-center gap-6">
-              <span className="text-3xl font-black tracking-[0.1em] drop-shadow-lg min-h-[40px] flex items-center font-mono">
-                {showDetails ? cardNumber.replace(/(.{4})/g, '$1 ') : `••••  ••••  ••••  ${cardNumber.slice(-4)}`}
+          {/* Identity String (Card Number) */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-black/20 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/5">
+              <span className="text-xl md:text-2xl font-black tracking-[0.15em] drop-shadow-xl font-mono text-white/90">
+                {showDetails ? cardNumber.replace(/(.{4})/g, '$1 ').trim() : `••••  ••••  ••••  ${cardNumber.slice(-4)}`}
               </span>
               <div className="flex gap-2">
                   <button 
-                      onClick={() => setShowDetails(!showDetails)}
-                      className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setShowDetails(!showDetails); }}
+                      className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
                   >
-                      {showDetails ? <EyeOff className="w-4 h-4 text-white/40" /> : <Eye className="w-4 h-4 text-white/40" />}
+                      {showDetails ? <EyeOff className="w-3.5 h-3.5 text-white/60" /> : <Eye className="w-3.5 h-3.5 text-white/60" />}
                   </button>
                   <button 
-                      onClick={handleCopy}
-                      className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); handleCopy(); }}
+                      className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
                   >
-                      {copied ? <Check className="w-4 h-4 text-secondary" /> : <Copy className="w-4 h-4 text-white/40" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-secondary" /> : <Copy className="w-3.5 h-3.5 text-white/60" />}
                   </button>
               </div>
             </div>
 
-            <div className="flex items-end justify-between border-t border-white/10 pt-8">
-               <div className="flex gap-12">
-                  <div className="space-y-1">
-                    <p className="text-[7px] font-black uppercase tracking-[0.4em] text-white/20">Expiry</p>
-                    <p className="text-xs font-black tracking-widest">{expiryDate}</p>
+            {/* Footer Data */}
+            <div className="flex items-end justify-between">
+               <div className="flex gap-10">
+                  <div className="space-y-0.5">
+                    <p className="text-[6px] font-black uppercase tracking-[0.4em] text-white/30">Holder</p>
+                    <p className="text-[10px] font-black tracking-widest uppercase truncate max-w-[120px]">{cardHolder || "MARJANE USER"}</p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[7px] font-black uppercase tracking-[0.4em] text-white/20">CVV</p>
-                    <p className="text-xs font-black tracking-widest">{showDetails ? cvv : "•••"}</p>
+                  <div className="space-y-0.5">
+                    <p className="text-[6px] font-black uppercase tracking-[0.4em] text-white/30">Expires</p>
+                    <p className="text-[10px] font-black tracking-widest">{expiryDate}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[6px] font-black uppercase tracking-[0.4em] text-white/30">CVV</p>
+                    <p className="text-[10px] font-black tracking-widest">{showDetails ? cvv : "•••"}</p>
                   </div>
                </div>
                <div className="flex flex-col items-end">
-                <p className="text-[9px] font-black uppercase tracking-widest leading-none mb-1 opacity-80">{brandConfig.name}</p>
-                <p className="text-2xl font-black tracking-tighter leading-none">{balance.toFixed(0)} <span className="text-[10px] text-secondary italic">MAD</span></p>
+                <p className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40 leading-none mb-1">{brandConfig.name}</p>
+                <div className="w-8 h-5 bg-white/10 rounded-sm flex items-center justify-center border border-white/5">
+                    <div className="w-4 h-4 rounded-full bg-red-500/80 -mr-1.5" />
+                    <div className="w-4 h-4 rounded-full bg-yellow-500/80" />
+                </div>
               </div>
             </div>
           </div>
@@ -142,16 +182,18 @@ export default function VirtualCard({
 
         {/* Frozen Overlay */}
         {isFrozen && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-20">
-            <div className="flex flex-col items-center gap-4 bg-white text-primary px-10 py-5 rounded-full shadow-2xl scale-125">
-              <Snowflake className="w-8 h-8 animate-pulse text-blue-400" />
-              <span className="font-black tracking-[0.3em] uppercase text-[10px]">Card Frozen</span>
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-20">
+            <div className="flex flex-col items-center gap-4 text-white scale-110">
+              <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                <Snowflake className="w-8 h-8 animate-pulse text-blue-400" />
+              </div>
+              <span className="font-black tracking-[0.5em] uppercase text-[10px]">Security Locked</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Control Surface */}
+      {/* Control Surface - Premium Style */}
       <div className="mt-8 flex flex-wrap gap-4 px-2">
             <button 
                 onClick={() => onToggleStatus(id, isFrozen ? "ACTIVE" : "FROZEN")}
@@ -189,7 +231,7 @@ export default function VirtualCard({
             </button>
       </div>
 
-      {/* Modals Staggered */}
+      {/* Premium Modals */}
       {(confirmDelete || confirmRegen || showRefill) && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
             <div className="absolute inset-0 bg-background/60 backdrop-blur-xl" onClick={() => { setConfirmDelete(false); setConfirmRegen(false); setShowRefill(false); }} />
@@ -271,3 +313,4 @@ export default function VirtualCard({
     </div>
   );
 }
+

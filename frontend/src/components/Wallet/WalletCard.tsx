@@ -23,7 +23,7 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
 
   if (isNoCard || !cardNumber || cardNumber.includes("4242")) {
     return (
-      <div className="relative w-full aspect-[1.6/1] fluid-card p-16 bg-white dark:bg-card border border-foreground/5 flex flex-col items-center justify-center text-center gap-10 group overflow-hidden">
+      <div className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-white dark:bg-card border border-foreground/5 flex flex-col items-center justify-center text-center gap-10 group overflow-hidden">
         {/* Background Decorative Blob */}
         <div className="absolute -right-24 -top-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000" />
         <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-secondary/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000" />
@@ -58,7 +58,7 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
   const brand = getCardBrand(cardNumber);
 
   return (
-    <div className="relative w-full aspect-[1.6/1] fluid-card p-16 bg-primary text-primary-foreground overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98]">
+    <div className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-primary text-primary-foreground overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98]">
       {/* Organic Background Textures */}
       <div className="absolute -right-20 -top-20 w-[30rem] h-[30rem] bg-white opacity-[0.03] rounded-full blur-3xl group-hover:opacity-[0.05] transition-opacity duration-1000" />
       <div className="absolute -left-20 -bottom-20 w-[30rem] h-[30rem] bg-secondary opacity-10 rounded-full blur-3xl" />
@@ -82,26 +82,42 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
           </button>
         </div>
 
-        <div className="py-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary-foreground/30 mb-2">Current Balance</p>
-          <div className="flex items-baseline gap-4">
-            <h2 className="text-7xl font-black tracking-tighter">
-              {showBalance ? balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "••••••"}
-            </h2>
-            <div className="flex flex-col">
-                <span className="text-3xl font-black text-secondary italic tracking-tighter">{currency}</span>
-                {showBalance && <span className="text-[10px] text-primary-foreground/20 -mt-1 font-bold">.{(balance % 1).toFixed(2).split('.')[1]}</span>}
+        <div className="py-4 flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary-foreground/30 mb-2">Current Balance</p>
+            <div className="flex items-baseline gap-4">
+              <h2 className="text-6xl font-black tracking-tighter">
+                {showBalance ? balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "••••••"}
+              </h2>
+              <div className="flex flex-col">
+                  <span className="text-2xl font-black text-secondary italic tracking-tighter">{currency}</span>
+                  {showBalance && <span className="text-[10px] text-primary-foreground/20 -mt-1 font-bold">.{(balance % 1).toFixed(2).split('.')[1]}</span>}
+              </div>
             </div>
+          </div>
+          
+          {/* Asset Chip */}
+          <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 relative overflow-hidden shadow-inner opacity-80 group-hover:opacity-100 transition-opacity">
+              <div className="absolute inset-0 opacity-20 border-[0.5px] border-black/50 grid grid-cols-3 grid-rows-2" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 border-[1px] border-black/20 rounded-sm" />
           </div>
         </div>
 
-        <div className="mt-auto flex items-end justify-between border-t border-white/5 pt-8">
+        <div className="mt-auto flex items-end justify-between border-t border-white/5 pt-4">
           <div className="space-y-2">
             <p className="text-primary-foreground/20 text-[8px] font-black uppercase tracking-[0.5em]">Card Number</p>
-            <p className="text-2xl font-black tracking-[0.1em] text-primary-foreground/90 drop-shadow-lg font-mono">{cardNumber.replace(/(.{4})/g, '$1 ')}</p>
+            <p className="text-xl md:text-2xl font-black tracking-[0.15em] text-primary-foreground/90 drop-shadow-lg font-mono">
+                {showBalance ? cardNumber.replace(/(.{4})/g, '$1 ').trim() : `••••  ••••  ••••  ${cardNumber.slice(-4)}`}
+            </p>
           </div>
-          <div className="px-6 py-2 bg-secondary text-primary rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-secondary/10">
-            {brand.name === 'VISA_PROTOCOL' ? 'Visa' : brand.name === 'MASTERCARD_NODE' ? 'Mastercard' : 'Marjane'}
+          <div className="flex flex-col items-end gap-2">
+            <div className="px-6 py-2 bg-secondary text-primary rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-secondary/10">
+                {brand.name === 'VISA_PROTOCOL' ? 'Visa' : brand.name === 'MASTERCARD_NODE' ? 'Mastercard' : 'Marjane'}
+            </div>
+            <div className="w-8 h-5 bg-white/10 rounded-sm flex items-center justify-center border border-white/5">
+                <div className="w-4 h-4 rounded-full bg-red-500/80 -mr-1.5" />
+                <div className="w-4 h-4 rounded-full bg-yellow-500/80" />
+            </div>
           </div>
         </div>
       </div>
