@@ -16,6 +16,8 @@ interface QRScannerModalProps {
   onSuccess: () => void;
 }
 
+import QRScanner from "./QRScanner";
+
 export default function QRScannerModal({ isOpen, onClose, senderBalance, onSuccess }: QRScannerModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Scanning, 2: Found, 3: Confirm, 4: Success
   const [loading, setLoading] = useState(false);
@@ -23,20 +25,40 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState<any>(null);
 
-  useEffect(() => {
-    if (step === 1 && isOpen) {
-        const timer = setTimeout(() => {
-            setRecipient({
-                id: "e5d1dcee-0342-412c-9af1-7e0365e8b17d",
-                name: "Marjane Store - Casa",
-                email: "marjane.casa@merchant.com",
-                type: "MERCHANT"
-            });
-            setStep(2);
-        }, 3000);
-        return () => clearTimeout(timer);
+  const handleScanSuccess = async (decodedText: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      // Logic to handle different QR formats (JSON or plain ID)
+      let scannedData: any;
+      try {
+        scannedData = JSON.parse(decodedText);
+      } catch {
+        scannedData = { id: decodedText };
+      }
+
+      if (!scannedData.id) throw new Error("Invalid QR Code: ID missing");
+
+      // Fetch full recipient details from backend if not in QR
+      if (!scannedData.name) {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`http://localhost:5000/api/transactions/search?query=${scannedData.id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Recipient not found");
+        setRecipient(data);
+      } else {
+        setRecipient(scannedData);
+      }
+
+      setStep(3); // Advance to amount input
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  }, [step, isOpen]);
+  };
 
   if (!isOpen) return null;
 
@@ -123,30 +145,34 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
             </div>
           )}
 
-          {/* Step 1: Scanning Simulation */}
+          {/* Step 1: Real QR Scanning */}
           {step === 1 && (
-            <div className="flex flex-col items-center py-20 animate-in fade-in duration-700">
-                <div className="relative w-80 h-80 rounded-[3rem] border border-foreground/5 bg-background shadow-2xl shadow-primary/5 flex items-center justify-center overflow-hidden group">
-                    <div className="absolute inset-0 bg-zellige-soft opacity-10 group-hover:opacity-20 transition-opacity" />
-                    
-                    <div className="absolute inset-12 border-2 border-primary/20 border-dashed rounded-full animate-[spin_30s_linear_infinite]" />
-                    
-                    <QrCode className="w-40 h-40 text-foreground/5 animate-pulse" />
-                    
-                    {/* Fluid Scanning Bar */}
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_40px_rgba(22,73,141,0.8)] animate-[scanner_3s_ease-in-out_infinite]" />
-                    
-                    {/* Organic corners */}
-                    <div className="absolute top-8 left-8 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-3xl" />
-                    <div className="absolute top-8 right-8 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-3xl" />
-                    <div className="absolute bottom-8 left-8 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-3xl" />
-                    <div className="absolute bottom-8 right-8 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-3xl" />
-                </div>
+            <div className="flex flex-col items-center py-8 animate-in fade-in duration-700">
+              <div className="relative w-full max-w-sm">
+                <QRScanner 
+                  onScanSuccess={handleScanSuccess}
+                  onScanError={(msg) => {
+                    if (!msg.includes("No QR code found")) {
+                      console.log("Scan error:", msg);
+                    }
+                  }}
+                />
                 
-                <div className="mt-16 space-y-3 text-center">
-                    <p className="text-[12px] font-black uppercase tracking-[0.6em] text-foreground animate-pulse">Scanning QR Code</p>
-                    <p className="text-[9px] font-bold text-foreground/20 uppercase tracking-[0.4em]">Establishing Secure Connection</p>
+                {/* Decorative Overlay */}
+                <div className="absolute inset-0 pointer-events-none border-2 border-primary/20 rounded-[2rem] m-2" />
+              </div>
+
+              <div className="mt-12 space-y-3 text-center">
+                <p className="text-[12px] font-black uppercase tracking-[0.6em] text-foreground animate-pulse">Scanning QR Code</p>
+                <p className="text-[9px] font-bold text-foreground/20 uppercase tracking-[0.4em]">Establish Secure Connection</p>
+              </div>
+              
+              {loading && (
+                <div className="mt-6 flex items-center gap-3 text-primary font-black uppercase tracking-widest text-[10px] animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing Scan...</span>
                 </div>
+              )}
             </div>
           )}
 

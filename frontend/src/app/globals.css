@@ -76,6 +76,17 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight leading-[1.1];
   }
+
+  /* Hide number input spinners */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 @layer utilities {
@@ -114,6 +125,15 @@
 
   .fluid-input {
       @apply w-full bg-background border border-border rounded-full p-6 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all placeholder:text-muted-foreground/40;
+  }
+
+  /* Utility to hide scrollbars while keeping functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none;    /* Firefox */
   }
 }
 

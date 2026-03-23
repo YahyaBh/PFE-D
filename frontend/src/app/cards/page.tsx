@@ -258,8 +258,9 @@ function CardsContent() {
 
             <button 
                 onClick={handleIssueCard}
-                disabled={issuing || (user?.tier === 'FREE' && cards.length >= 1)}
-                className="hidden md:flex items-center gap-2 px-6 py-2 bg-marjane-gold text-marjane-blue rounded-full font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-20"
+                disabled={issuing || (user?.tier === 'BRONZE' && cards.length >= 1)}
+                title={user?.tier === 'BRONZE' && cards.length >= 1 ? "Free tier limit reached. Upgrade to add more nodes." : ""}
+                className="hidden md:flex items-center gap-2 px-6 py-2 bg-marjane-gold text-marjane-blue rounded-full font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
             >
               {issuing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
               Initialize Node
@@ -292,7 +293,7 @@ function CardsContent() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-8 pt-20 pb-32">
+      <main className="max-w-4xl mx-auto px-8 pt-44 pb-32">
         
         {/* ───── Page Header ───── */}
         <header className="mb-24 relative">
@@ -347,18 +348,34 @@ function CardsContent() {
             ))}
             
             {/* New Node Placeholder */}
-            {!(user?.tier === 'FREE' && cards.length >= 1) && (
-              <button 
-                className="w-full max-w-[480px] h-32 rounded-[2.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-4 hover:border-marjane-gold/50 hover:bg-marjane-gold/5 transition-all text-white/20 hover:text-marjane-gold group active:scale-[0.98] relative overflow-hidden" 
+            <button 
+                disabled={user?.tier === 'BRONZE' && cards.length >= 1}
+                className={cn(
+                    "w-full max-w-[480px] h-32 rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center gap-4 transition-all text-white/20 group relative overflow-hidden",
+                    (user?.tier === 'BRONZE' && cards.length >= 1) 
+                        ? "border-white/5 opacity-50 cursor-not-allowed" 
+                        : "border-white/10 hover:border-marjane-gold/50 hover:bg-marjane-gold/5 hover:text-marjane-gold active:scale-[0.98]"
+                )}
                 onClick={handleIssueCard}
-              >
+            >
                 <div className="absolute inset-0 bg-marjane-gold/0 group-hover:bg-marjane-gold/5 transition-colors" />
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-marjane-gold group-hover:text-marjane-blue group-hover:border-marjane-gold transition-all duration-500">
-                    <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" />
+                <div className={cn(
+                    "w-12 h-12 rounded-full border flex items-center justify-center transition-all duration-500",
+                    (user?.tier === 'FREE' && cards.length >= 1)
+                        ? "border-white/5 text-white/10"
+                        : "border-white/10 group-hover:bg-marjane-gold group-hover:text-marjane-blue group-hover:border-marjane-gold"
+                )}>
+                    <Plus className={cn("w-6 h-6", !(user?.tier === 'FREE' && cards.length >= 1) && "group-hover:rotate-90 transition-transform duration-500")} />
                 </div>
-                <span className="font-black text-[10px] uppercase tracking-[0.5em] group-hover:tracking-[0.6em] transition-all">Add New asset Node</span>
-              </button>
-            )}
+                <div className="text-center">
+                    <span className="block font-black text-[10px] uppercase tracking-[0.5em] group-hover:tracking-[0.6em] transition-all">
+                        {user?.tier === 'BRONZE' && cards.length >= 1 ? "Upgrade to add more nodes" : "Add New asset Node"}
+                    </span>
+                    {user?.tier === 'BRONZE' && cards.length >= 1 && (
+                        <span className="block text-[8px] font-bold text-marjane-gold/40 uppercase tracking-widest mt-1">Free Tier Limit Reached</span>
+                    )}
+                </div>
+            </button>
           </div>
         )}
 
@@ -389,6 +406,15 @@ function CardsContent() {
 
         <div className="h-12" />
       </main>
+
+      <NotificationTray 
+        isOpen={isNotificationTrayOpen}
+        onClose={() => setIsNotificationTrayOpen(false)}
+        notifications={notifications}
+        onMarkRead={handleMarkNotifRead}
+        onMarkAllRead={handleMarkAllNotifsRead}
+        onDelete={handleDeleteNotif}
+      />
     </div>
   );
 }

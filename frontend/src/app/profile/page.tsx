@@ -6,10 +6,12 @@ import {
   ArrowLeft, User, Lock, Smartphone, ScanFace, Shield,
   Loader2, CheckCircle2, XCircle, Edit3, Save, Eye, EyeOff,
   LogOut, Trash2, AlertTriangle, ChevronDown, ChevronUp, BadgeCheck, Clock, Activity,
-  Moon, Sun, Sparkles, Fingerprint, ShieldCheck, Zap
+  Moon, Sun, Sparkles, Fingerprint, ShieldCheck, Zap, Bell
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import { useTheme } from "@/components/ThemeProvider";
+import NotificationTray from "@/components/Notifications/NotificationTray";
+import Link from "next/link";
 
 function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(" ");
@@ -21,6 +23,8 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [isNotificationTrayOpen, setIsNotificationTrayOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Edit Profile
   const [isEditing, setIsEditing] = useState(false);
@@ -67,20 +71,25 @@ export default function ProfilePage() {
 
   const fetchAll = async () => {
     try {
-      const [userRes, faceRes, sessionsRes] = await Promise.all([
+      const [userRes, faceRes, sessionsRes, notificationRes] = await Promise.all([
         fetch("http://localhost:5000/api/auth/me", { headers }),
         fetch("http://localhost:5000/api/profile/face-status", { headers }),
         fetch("http://localhost:5000/api/profile/sessions", { headers }),
+        fetch("http://localhost:5000/api/notifications", { headers })
       ]);
-      const userData = await userRes.json();
-      const faceData = await faceRes.json();
-      const sessionsData = await sessionsRes.json();
+      const [userData, faceData, sessionsData, notifData] = await Promise.all([
+        userRes.json(),
+        faceRes.json(),
+        sessionsRes.json(),
+        notificationRes.json()
+      ]);
 
       setUser(userData);
       setEditName(userData.name || "");
       setEditPhone(userData.phone || "");
       setHasFaceAuth(faceData.hasFaceAuth);
       setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+      setNotifications(Array.isArray(notifData) ? notifData : []);
 
       try {
         const kycRes = await fetch("http://localhost:5000/api/kyc/status", { headers });
@@ -181,6 +190,47 @@ export default function ProfilePage() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
+  const handleMarkNotifRead = async (id: string) => {
+    try {
+        await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
+            method: 'PATCH',
+            headers
+        });
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (e) {
+        console.error(e);
+    }
+  };
+
+  const handleMarkAllNotifsRead = async () => {
+    try {
+        await fetch(`http://localhost:5000/api/notifications/read-all`, {
+            method: 'PATCH',
+            headers
+        });
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) {
+        console.error(e);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    try {
+        await fetch(`http://localhost:5000/api/notifications/${id}`, {
+            method: 'DELETE',
+            headers
+        });
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (e) {
+        console.error(e);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
   if (loading || !user) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-6">
       <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -193,17 +243,49 @@ export default function ProfilePage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* ───── Fluid Navigation ───── */}
-      <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-3rem)] max-w-3xl no-print">
+      <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-3rem)] max-w-4xl no-print">
         <div className="fluid-glass rounded-full px-8 h-20 flex items-center justify-between shadow-2xl">
-          <button onClick={() => router.push("/dashboard")} className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-primary/5 rounded-full flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
-                <ArrowLeft className="w-6 h-6" />
-            </div>
-            <span className="font-display font-bold text-xs tracking-widest text-foreground uppercase">Back to Dashboard</span>
-          </button>
+          <div className="flex items-center gap-6">
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-2 group-hover:rotate-[360deg] transition-all duration-1000 shadow-xl">
+                    <img src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
+                </div>
+                <div className="hidden md:block">
+                    <span className="font-display font-bold text-lg tracking-tight text-foreground uppercase flex flex-col leading-none">
+                        MARJANE <span className="text-primary italic text-xs tracking-[0.2em]">PROTOCOL</span>
+                    </span>
+                </div>
+            </Link>
+
+            <div className="h-8 w-[1px] bg-foreground/10 hidden md:block" />
+            
+            <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 px-6 py-2 bg-secondary text-primary rounded-full font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">
+                <ArrowLeft className="w-3 h-3" /> Dashboard
+            </button>
+          </div>
           
-          <div className="flex items-center gap-4">
-            <h1 className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/40">Account Settings</h1>
+          <div className="flex items-center gap-2">
+            {[
+                { icon: Bell, onClick: () => setIsNotificationTrayOpen(true), badge: notifications.filter(n => !n.isRead).length },
+                { icon: User, onClick: () => router.push("/profile") },
+                { icon: LogOut, onClick: handleLogout, variant: 'destructive' }
+            ].map((btn, i) => (
+                <button 
+                    key={i}
+                    onClick={btn.onClick}
+                    className={cn(
+                        "relative p-4 rounded-full hover:bg-foreground/5 transition-all active:scale-90",
+                        btn.variant === 'destructive' ? "text-red-500" : "text-foreground"
+                    )}
+                >
+                    <btn.icon className="w-6 h-6" />
+                    {typeof btn.badge === 'number' && btn.badge > 0 && (
+                        <span className="absolute top-2 right-2 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background animate-pulse">
+                            {btn.badge}
+                        </span>
+                    )}
+                </button>
+            ))}
           </div>
         </div>
       </nav>
@@ -509,6 +591,15 @@ export default function ProfilePage() {
 
         <div className="h-20" />
       </main>
+
+      <NotificationTray 
+        isOpen={isNotificationTrayOpen}
+        onClose={() => setIsNotificationTrayOpen(false)}
+        notifications={notifications}
+        onMarkRead={handleMarkNotifRead}
+        onMarkAllRead={handleMarkAllNotifsRead}
+        onDelete={handleDeleteNotif}
+      />
     </div>
   );
 }

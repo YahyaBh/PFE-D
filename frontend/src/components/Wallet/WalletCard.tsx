@@ -2,6 +2,7 @@
 
 import { Wallet, Info, Eye, EyeOff, Plus, CreditCard, Sparkles, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -19,6 +20,7 @@ interface WalletCardProps {
 }
 
 export default function WalletCard({ balance, currency, cardNumber, name, onIssue, isNoCard }: WalletCardProps) {
+  const router = useRouter();
   const [showBalance, setShowBalance] = useState(true);
 
   if (isNoCard || !cardNumber || cardNumber.includes("4242")) {
@@ -58,7 +60,10 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
   const brand = getCardBrand(cardNumber);
 
   return (
-    <div className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-primary text-primary-foreground overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98]">
+    <div 
+      onClick={() => router.push("/cards")}
+      className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-primary text-primary-foreground overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98] cursor-pointer"
+    >
       {/* Organic Background Textures */}
       <div className="absolute -right-20 -top-20 w-[30rem] h-[30rem] bg-white opacity-[0.03] rounded-full blur-3xl group-hover:opacity-[0.05] transition-opacity duration-1000" />
       <div className="absolute -left-20 -bottom-20 w-[30rem] h-[30rem] bg-secondary opacity-10 rounded-full blur-3xl" />
@@ -107,7 +112,9 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
           <div className="space-y-2">
             <p className="text-primary-foreground/20 text-[8px] font-black uppercase tracking-[0.5em]">Card Number</p>
             <p className="text-xl md:text-2xl font-black tracking-[0.15em] text-primary-foreground/90 drop-shadow-lg font-mono">
-                {showBalance ? cardNumber.replace(/(.{4})/g, '$1 ').trim() : `••••  ••••  ••••  ${cardNumber.slice(-4)}`}
+                {showBalance 
+                    ? cardNumber.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim() 
+                    : `•••• •••• •••• ${cardNumber.replace(/\s/g, '').slice(-4)}`}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">

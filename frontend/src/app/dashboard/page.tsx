@@ -9,6 +9,7 @@ import DepositModal from "@/components/Wallet/DepositModal";
 import RequestModal from "@/components/Wallet/RequestModal";
 import WithdrawModal from "@/components/Wallet/WithdrawModal";
 import QRScannerModal from "@/components/Wallet/QRScannerModal";
+import TransactionDetailModal from "@/components/Wallet/TransactionDetailModal";
 import { Landmark, QrCode, MessageSquare, Bell } from "lucide-react";
 import Link from "next/link";
 import NotificationTray from "@/components/Notifications/NotificationTray";
@@ -38,6 +39,8 @@ export default function DashboardPage() {
   });
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -339,13 +342,13 @@ export default function DashboardPage() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[100px] opacity-20 animate-fluid-float" />
             
             <div className="flex flex-col items-center justify-center h-full text-center relative z-10">
-                <div className="flex items-center gap-4 overflow-x-auto pt-4 pb-8 scrollbar-hide w-full justify-center px-4">
+                <div className="flex items-center gap-4 overflow-x-auto pt-4 pb-8 scrollbar-hide w-full px-8 justify-start sm:justify-center">
                     {(user.wallets || []).map((w: any) => (
                         <button
                             key={w.currency}
                             onClick={() => setActiveCurrency(w.currency)}
                             className={cn(
-                                "px-10 py-5 rounded-full font-black uppercase tracking-widest transition-all",
+                                "px-10 py-5 rounded-full font-black uppercase tracking-widest transition-all shrink-0",
                                 activeCurrency === w.currency 
                                     ? "bg-primary text-white shadow-2xl shadow-primary/40 -translate-y-2" 
                                     : "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
@@ -526,7 +529,14 @@ export default function DashboardPage() {
                   transactions.slice(0, 5).map((t, idx) => {
                     const isSender = t.senderEmail === user.email;
                     return (
-                      <div key={t.id} className="group relative flex items-start gap-12 md:pl-4 transition-all hover:translate-x-2">
+                      <div 
+                        key={t.id} 
+                        onClick={() => {
+                          setSelectedTransaction(t);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className="group relative flex items-start gap-12 md:pl-4 transition-all hover:translate-x-2 cursor-pointer"
+                      >
                         <div className={cn(
                             "w-24 h-24 shrink-0 rounded-full flex items-center justify-center shadow-2xl relative z-10 transition-all group-hover:scale-110",
                             t.type?.startsWith('DEPOSIT') ? "bg-green-500 text-white shadow-green-500/20" :
@@ -605,6 +615,13 @@ export default function DashboardPage() {
           isOpen={isDepositModalOpen} 
           onClose={() => setIsDepositModalOpen(false)} 
           onSuccess={refreshBalance}
+        />
+
+        <TransactionDetailModal 
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          transaction={selectedTransaction}
+          currentUserEmail={user?.email}
         />
       </main>
 

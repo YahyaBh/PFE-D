@@ -96,7 +96,9 @@ export default function VirtualCard({
               {/* Card Number */}
               <div className="flex items-center justify-between group/number">
                 <span className="text-2xl md:text-3xl font-mono font-bold tracking-[0.2em] text-white/90 drop-shadow-lg">
-                  {showDetails ? cardNumber.replace(/(.{4})/g, '$1 ').trim() : `••••  ••••  ••••  ${cardNumber.slice(-4)}`}
+                  {showDetails 
+                    ? cardNumber.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim() 
+                    : `•••• •••• •••• ${cardNumber.replace(/\s/g, '').slice(-4)}`}
                 </span>
                 <div className="flex gap-2 opacity-0 group-hover/number:opacity-100 transition-opacity">
                     <button 

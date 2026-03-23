@@ -25,8 +25,6 @@ export default function TransferModal({ isOpen, onClose, senderBalance, onSucces
   const [error, setError] = useState("");
   const [limits, setLimits] = useState<any>(null);
 
-  if (!isOpen) return null;
-
   useEffect(() => {
     if (isOpen) {
       const token = localStorage.getItem("token");
@@ -35,6 +33,8 @@ export default function TransferModal({ isOpen, onClose, senderBalance, onSucces
       }).then(r => r.json()).then(setLimits).catch(() => {});
     }
   }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

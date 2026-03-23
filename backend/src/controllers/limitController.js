@@ -33,7 +33,7 @@ const getOrCreateLimits = async (userId) => {
 
     // Fetch user tier
     const [users] = await db.query('SELECT tier FROM users WHERE id = ?', [userId]);
-    const tier = users[0]?.tier || 'FREE';
+    const tier = users[0]?.tier || 'BRONZE';
 
     // Different defaults based on Tier
     let defaults = {
@@ -45,7 +45,7 @@ const getOrCreateLimits = async (userId) => {
         monthly_deposit: 200000
     };
 
-    if (tier === 'PREMIUM' || tier === 'ELITE') {
+    if (['SILVER', 'GOLD', 'PLATINUM'].includes(tier)) {
         defaults = {
             daily_transfer: 25000,
             monthly_transfer: 250000,

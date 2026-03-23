@@ -30,6 +30,19 @@ const issueCard = async (req, res) => {
         const userId = req.user.id;
         const { cardHolder } = req.body;
 
+        // 1. Check user tier and limits
+        const [users] = await db.query('SELECT tier FROM users WHERE id = ?', [userId]);
+        const userTier = users[0]?.tier || 'BRONZE';
+
+        if (userTier === 'BRONZE') {
+            const [existingCards] = await db.query('SELECT COUNT(*) as count FROM cards WHERE user_id = ?', [userId]);
+            if (existingCards[0].count >= 1) {
+                return res.status(403).json({ 
+                    error: 'Card limit reached for Free Tier. Please upgrade to Premium for unlimited cards.' 
+                });
+            }
+        }
+
         // DB ALIGNMENT SELF-HEALING
         try {
             await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS user_id VARCHAR(36)");
@@ -39,7 +52,7 @@ const issueCard = async (req, res) => {
             await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS balance DECIMAL(12,2) DEFAULT 0.00");
         } catch(e) {}
 
-        // 1. Fetch user's primary wallet ID
+        // 2. Fetch user's primary wallet ID
         const [wallets] = await db.query('SELECT id FROM wallets WHERE user_id = ? LIMIT 1', [userId]);
         const walletId = wallets[0]?.id;
 
@@ -252,8 +265,8 @@ const refillCard = async (req, res) => {
         // 3. Log transaction
         const txId = uuidv4();
         await connection.query(
-            'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status, user_id, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [txId, wallet.id, null, amountNum, 'MAD', 'CARD_REFILL', 'COMPLETED', userId, `Refill for card ${cards[0].card_number.slice(-4)}`]
+            'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [txId, wallet.id, null, amountNum, 'MAD', 'CARD_REFILL', 'COMPLETED', `Refill for card ${cards[0].card_number.slice(-4)}`]
         );
 
         // LEDGER: Debit Wallet (-), Credit Card Ledger (+)
