@@ -2,7 +2,8 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false,
+  output: 'standalone',
+  reactStrictMode: true,
   optimizeFonts: false,
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -26,7 +27,7 @@ const nextConfig = {
 
       config.resolve.alias = {
         ...config.resolve.alias,
-        'encoding': false,
+        'encoding': path.resolve(__dirname, 'src/polyfills/encoding.js'),
         'node-fetch': false,
       };
     }

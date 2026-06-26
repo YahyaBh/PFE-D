@@ -1,68 +1,38 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  BookOpen, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Scale, 
-  AlertCircle,
-  Clock,
-  User,
-  Hash,
-  RefreshCw,
-  Search,
-  ChevronRight,
-  Database,
-  CheckCircle2
+import {
+  BookOpen, ArrowUpRight, ArrowDownLeft, AlertCircle, Clock,
+  Search, Loader2, RefreshCw, CheckCircle2, Scale
 } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { api } from "@/lib/api";
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-interface LedgerAccount {
-  id: string;
-  owner_id?: string;
-  name: string;
-  type: string;
-  balance: number;
-  currency: string;
-  ownerName?: string;
-  ownerEmail?: string;
-}
-
-interface LedgerStats {
-  totalCredits: number;
-  totalDebits: number;
-  imbalance: number;
-}
-
-export default function LedgerPage() {
-  const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
-  const [stats, setStats] = useState<LedgerStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'accounts' | 'entries'>('accounts');
+export default function GeneralLedgerPage() {
+  const [tab, setTab] = useState("accounts");
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [entries, setEntries] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<any>(null);
 
-  const fetchData = async () => {
+  const fetchLedger = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/admin/ledger/summary", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setAccounts(data.accounts || []);
-      setStats(data.stats);
-
-      const entriesRes = await fetch("http://localhost:5000/api/admin/ledger/entries?limit=50", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const entriesData = await entriesRes.json();
-      setEntries(entriesData);
+      const [summaryRes, entriesRes] = await Promise.all([
+        api.get("/admin/ledger/summary"),
+        api.get("/admin/ledger/entries?limit=50")
+      ]);
+      if (summaryRes.ok) {
+        const data = await summaryRes.json();
+        setStats(data.stats || data);
+        setAccounts(data.accounts || []);
+      }
+      if (entriesRes.ok) {
+        const data = await entriesRes.json();
+        setEntries(Array.isArray(data) ? data : data.entries || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -70,212 +40,194 @@ export default function LedgerPage() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchLedger(); }, []);
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    setReconcileResult(null);
+    try {
+      const res = await api.post("/admin/ledger/reconcile");
+      if (res.ok) setReconcileResult(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setReconciling(false);
+    }
+  };
+
+  const filteredAccounts = accounts.filter(a =>
+    a.name?.toLowerCase().includes(accountSearch.toLowerCase()) ||
+    a.ownerName?.toLowerCase().includes(accountSearch.toLowerCase())
+  );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-indigo-500" />
-            General Ledger
-          </h1>
-          <p className="text-slate-400 mt-1">Double-entry accounting system and real-time reconciliation.</p>
+          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">General Ledger</h1>
+          <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>Double-entry accounting system overview.</p>
         </div>
-        <button 
-          onClick={fetchData}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-2xl transition-all font-bold text-sm"
-        >
-          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-          Reconcile Now
-        </button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-               <ArrowUpRight className="w-12 h-12 text-green-500" />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Total System Credits</p>
-          <h2 className="text-3xl font-black text-white">
-            {stats?.totalCredits.toLocaleString() || '0.00'} <span className="text-sm opacity-40">MAD</span>
-          </h2>
-          <div className="mt-4 flex items-center gap-2 text-green-500 text-xs font-bold">
-            <CheckCircle2 className="w-4 h-4" />
-            Verified Inflows
-          </div>
-        </div>
-
-        <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-               <ArrowDownLeft className="w-12 h-12 text-red-500" />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Total System Debits</p>
-          <h2 className="text-3xl font-black text-white">
-            {stats?.totalDebits.toLocaleString() || '0.00'} <span className="text-sm opacity-40">MAD</span>
-          </h2>
-          <div className="mt-4 flex items-center gap-2 text-red-500 text-xs font-bold">
-            <CheckCircle2 className="w-4 h-4" />
-            Verified Outflows
-          </div>
-        </div>
-
-        <div className={cn(
-             "border p-6 rounded-[2rem] relative overflow-hidden group",
-             stats?.imbalance === 0 
-                ? "bg-indigo-500/10 border-indigo-500/20" 
-                : "bg-red-500/10 border-red-500/20"
-        )}>
-          <div className="absolute top-0 right-0 p-4 opacity-20">
-               <Scale className={cn("w-12 h-12", stats?.imbalance === 0 ? "text-indigo-500" : "text-red-500")} />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Account Imbalance</p>
-          <h2 className={cn("text-3xl font-black", stats?.imbalance === 0 ? "text-indigo-400" : "text-red-500")}>
-            {stats?.imbalance.toLocaleString() || '0.00'} <span className="text-sm opacity-40">MAD</span>
-          </h2>
-          <div className="mt-4 flex items-center gap-2 text-xs font-bold">
-            {stats?.imbalance === 0 ? (
-                <>
-                    <ShieldCheck className="w-4 h-4 text-indigo-500" />
-                    <span className="text-indigo-400">Ledger fully balanced</span>
-                </>
-            ) : (
-                <>
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-red-500">Critical: Integrity Error</span>
-                </>
-            )}
-          </div>
+        <div className="flex items-center gap-3">
+          <button onClick={handleReconcile} disabled={reconciling}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition-all"
+            style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)' }}>
+            {reconciling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
+            Reconcile
+          </button>
+          <button onClick={fetchLedger} className="p-3 rounded-xl transition-all" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} style={{ color: 'rgba(255,255,255,0.4)' }} />
+          </button>
         </div>
       </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="p-6 rounded-[2rem]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <ArrowUpRight className="w-5 h-5 text-emerald-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Total Credits</span>
+            </div>
+            <span className="text-2xl font-black text-white">{parseFloat(stats.totalCredits || 0).toLocaleString()}</span>
+          </div>
+          <div className="p-6 rounded-[2rem]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <ArrowDownLeft className="w-5 h-5 text-red-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Total Debits</span>
+            </div>
+            <span className="text-2xl font-black text-white">{parseFloat(stats.totalDebits || 0).toLocaleString()}</span>
+          </div>
+          <div className="p-6 rounded-[2rem]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <Scale className="w-5 h-5" style={{ color: parseFloat(stats.imbalance || 0) > 0.01 ? '#ef4444' : '#10b981' }} />
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Imbalance</span>
+            </div>
+            <span className={`text-2xl font-black ${parseFloat(stats.imbalance || 0) > 0.01 ? 'text-red-500' : 'text-emerald-500'}`}>
+              {parseFloat(stats.imbalance || 0).toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Reconcile Result */}
+      {reconcileResult && (
+        <div className="p-5 rounded-2xl flex items-center gap-3" style={{
+          background: reconcileResult.balanced ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1px solid ${reconcileResult.balanced ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`
+        }}>
+          {reconcileResult.balanced ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-red-500" />}
+          <span className="text-sm font-bold" style={{ color: reconcileResult.balanced ? '#10b981' : '#ef4444' }}>
+            {reconcileResult.balanced ? '✓ Ledger is balanced' : `Imbalance: ${parseFloat(reconcileResult.imbalance).toFixed(2)} MAD`}
+          </span>
+        </div>
+      )}
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-slate-800 pb-px">
-        <button 
-          onClick={() => setActiveTab('accounts')}
-          className={cn(
-            "px-6 py-4 text-sm font-bold transition-all relative",
-            activeTab === 'accounts' ? "text-white" : "text-slate-500 hover:text-white"
-          )}
-        >
-          Ledger Accounts
-          {activeTab === 'accounts' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}
-        </button>
-        <button 
-          onClick={() => setActiveTab('entries')}
-          className={cn(
-            "px-6 py-4 text-sm font-bold transition-all relative",
-            activeTab === 'entries' ? "text-white" : "text-slate-500 hover:text-white"
-          )}
-        >
-          Journal Entries
-          {activeTab === 'entries' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}
-        </button>
+      <div className="flex gap-4 border-b pb-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        {["accounts", "entries"].map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`text-sm font-bold uppercase tracking-widest transition-all ${tab === t ? 'text-white' : ''}`}
+            style={tab !== t ? { color: 'rgba(255,255,255,0.3)' } : {}}>
+            {t === 'accounts' ? 'Ledger Accounts' : 'Journal Entries'}
+          </button>
+        ))}
       </div>
 
-      {/* Content */}
-      <div className="bg-slate-950/50 border border-slate-800 rounded-[2rem] overflow-hidden">
-        {activeTab === 'accounts' ? (
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-slate-900/50 border-b border-slate-800">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Account Name</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Type</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/50">
-                        {accounts.map(acc => (
-                            <tr key={acc.id} className="hover:bg-white/5 transition-colors group">
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center">
-                                            {acc.owner_id ? <User className="w-5 h-5 text-slate-500" /> : <Database className="w-5 h-5 text-indigo-500" />}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-white">{acc.name}</p>
-                                            <p className="text-[10px] text-slate-500 font-mono uppercase">{acc.id.slice(0, 13)}...</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className="px-3 py-1 bg-slate-900 rounded-full text-[10px] font-black text-slate-400 border border-slate-800 uppercase tracking-widest">
-                                        {acc.type}
-                                    </span>
-                                </td>
-                                <td className="px-8 py-6 text-right">
-                                    <span className={cn(
-                                        "text-lg font-black",
-                                        acc.balance < 0 ? "text-red-400" : "text-white"
-                                    )}>
-                                        {acc.balance.toLocaleString()}
-                                    </span>
-                                    <span className="text-[10px] font-bold text-slate-500 ml-2">MAD</span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        ) : (
-            <div className="overflow-x-auto">
-                 <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-slate-900/50 border-b border-slate-800">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Timestamp</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Journal</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Description</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/50">
-                        {loading ? (
-                            <tr><td colSpan={4} className="px-8 py-20 text-center"><RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" /></td></tr>
-                        ) : entries.map(entry => (
-                            <tr key={entry.id} className="hover:bg-white/5 transition-colors">
-                                <td className="px-8 py-6">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-white">{new Date(entry.created_at).toLocaleString()}</span>
-                                        <span className="text-[10px] text-slate-500 font-mono">TX: {entry.transaction_id.slice(0, 8)}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-2">
-                                        <Hash className="w-3.5 h-3.5 text-slate-500" />
-                                        <span className="text-sm font-bold text-slate-300">{entry.accountName}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex flex-col">
-                                        <span className="text-sm italic text-slate-400">{entry.description || "N/A"}</span>
-                                        <span className="text-[10px] font-black text-indigo-500/50 uppercase tracking-widest">{entry.txType}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6 text-right">
-                                    <div className={cn(
-                                        "inline-flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-sm",
-                                        entry.amount < 0 
-                                            ? "bg-red-500/10 border-red-500/20 text-red-400" 
-                                            : "bg-green-500/10 border-green-500/20 text-green-400"
-                                    )}>
-                                        {entry.amount > 0 ? "+" : ""}{entry.amount.toLocaleString()} MAD
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        )}
-      </div>
+      {/* Accounts Tab */}
+      {tab === "accounts" && (
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+            <input type="text" placeholder="Search accounts..." value={accountSearch}
+              onChange={(e) => setAccountSearch(e.target.value)}
+              className="w-full outline-none rounded-2xl py-3 pl-11 pr-4 text-sm font-medium transition-all"
+              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+          </div>
+          <div className="rounded-[2rem] overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Account</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Type</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Owner</th>
+                  <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={4} className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: '#3b82f6' }} /></td></tr>
+                ) : filteredAccounts.length === 0 ? (
+                  <tr><td colSpan={4} className="p-12 text-center"><p style={{ color: 'rgba(255,255,255,0.3)' }}>No accounts found</p></td></tr>
+                ) : filteredAccounts.map((a: any) => (
+                  <tr key={a.id} className="border-b last:border-0 hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.03)' }}>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          <BookOpen className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                        </div>
+                        <span className="text-sm font-bold text-white">{a.name || 'Unnamed Account'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border" style={{
+                        color: a.type === 'ASSET' ? '#10b981' : a.type === 'LIABILITY' ? '#f59e0b' : '#3b82f6',
+                        background: `${a.type === 'ASSET' ? '#10b981' : a.type === 'LIABILITY' ? '#f59e0b' : '#3b82f6'}10`,
+                        borderColor: `${a.type === 'ASSET' ? '#10b981' : a.type === 'LIABILITY' ? '#f59e0b' : '#3b82f6'}20`
+                      }}>{a.type || 'N/A'}</span>
+                    </td>
+                    <td className="px-6 py-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{a.ownerName || a.ownerEmail || 'System'}</td>
+                    <td className="px-6 py-5 text-right">
+                      <span className="text-lg font-black text-white">{parseFloat(a.balance || 0).toFixed(2)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Journal Entries Tab */}
+      {tab === "entries" && (
+        <div className="rounded-[2rem] overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Date</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Account</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Description</th>
+                <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Debit</th>
+                <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5} className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: '#3b82f6' }} /></td></tr>
+              ) : entries.length === 0 ? (
+                <tr><td colSpan={5} className="p-12 text-center"><p style={{ color: 'rgba(255,255,255,0.3)' }}>No journal entries found</p></td></tr>
+              ) : entries.map((e: any) => (
+                <tr key={e.id} className="border-b last:border-0 hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.03)' }}>
+                  <td className="px-6 py-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {e.created_at ? new Date(e.created_at).toLocaleString() : '-'}
+                  </td>
+                  <td className="px-6 py-5 text-sm font-bold text-white">{e.accountName || '—'}</td>
+                  <td className="px-6 py-5 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{e.txType || '—'}</td>
+                  <td className="px-6 py-5 text-right text-sm font-bold text-emerald-500">
+                    {e.amount > 0 ? parseFloat(e.amount).toFixed(2) : '-'}
+                  </td>
+                  <td className="px-6 py-5 text-right text-sm font-bold text-red-500">
+                    {e.amount < 0 ? Math.abs(e.amount).toFixed(2) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-import { ShieldCheck } from "lucide-react";
-import React from "react";
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(" ");
+}

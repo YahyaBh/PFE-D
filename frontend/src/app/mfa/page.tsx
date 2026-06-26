@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldCheck, MessageSquare, Loader2, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { api } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const FaceAuth = dynamic(() => import("@/components/FaceAuth"), { ssr: false });
@@ -21,6 +22,7 @@ function MFAContent() {
   const email = searchParams.get("email");
   const userId = searchParams.get("userId");
   const storedDescriptorStr = searchParams.get("faceDescriptor");
+  const returnTo = searchParams.get("returnTo");
   
   const [step, setStep] = useState<"face" | "code">("face");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -29,18 +31,36 @@ function MFAContent() {
   const [error, setError] = useState("");
   const [storedFaceDescriptor, setStoredFaceDescriptor] = useState<number[] | null>(null);
   const [matchConfidence, setMatchConfidence] = useState<"high" | "medium" | "low" | null>(null);
+  const [faceScanned, setFaceScanned] = useState(false);
+  const [scanKey, setScanKey] = useState(0);
 
-  // Fetch face descriptor if not provided in URL
+  // Fetch face descriptor from sessionStorage (set by login page) or backend
   useEffect(() => {
     const fetchFaceDescriptor = async () => {
       if (userId) {
         try {
-          // If we already have it in URL, use it (and decode if needed)
+          // Check sessionStorage first (set by login page)
+          const stored = sessionStorage.getItem("mfa_faceDescriptor");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed)) {
+                setStoredFaceDescriptor(parsed);
+                sessionStorage.removeItem("mfa_faceDescriptor");
+                setIsFetchingDescriptor(false);
+                return;
+              }
+            } catch (e) {
+              console.error("sessionStorage descriptor parse failed:", e);
+            }
+          }
+
+          // If we already have it in URL, use it
           if (storedDescriptorStr) {
              try {
                 const parsed = JSON.parse(storedDescriptorStr);
                 setStoredFaceDescriptor(Array.isArray(parsed) ? parsed : null);
-                if (!parsed) setStep("code"); // Fallback if null/empty
+                if (!parsed) setStep("code");
                 setIsFetchingDescriptor(false);
                 return;
              } catch (e) {
@@ -48,10 +68,9 @@ function MFAContent() {
              }
           }
 
-          const res = await fetch(`http://localhost:5000/api/auth/user/${userId}/face-descriptor`);
+          const res = await api.get(`/auth/user/${userId}/face-descriptor`);
           if (res.ok) {
             const data = await res.json();
-            // Ensure descriptor is parsed from JSON if it's a string
             const descriptor = typeof data.faceDescriptor === "string" 
               ? JSON.parse(data.faceDescriptor) 
               : data.faceDescriptor;
@@ -68,7 +87,7 @@ function MFAContent() {
           }
         } catch (err) {
           console.error("Failed to fetch face descriptor:", err);
-          setStep("code"); // Fallback on error
+          setStep("code");
         } finally {
           setIsFetchingDescriptor(false);
         }
@@ -141,66 +160,56 @@ function MFAContent() {
     return dotProduct / (norm1 * norm2);
   };
 
-  const handleFaceCapture = (descriptor: number[]) => {
+  const handleFaceCapture = useCallback((descriptor: number[] | null) => {
     try {
-      if (!storedFaceDescriptor) {
-        throw new Error("Biometric template missing. Please contact support.");
+      if (!descriptor) {
+        setError("No face data captured. Please try again.");
+        setFaceScanned(false);
+        return;
       }
 
-      console.log("🔍 Input validation:");
-      console.log("📥 Live descriptor length:", descriptor?.length);
-      console.log("💾 Stored descriptor length:", storedFaceDescriptor?.length);
-      console.log("📥 Live sample:", descriptor?.slice(0, 3));
-      console.log("💾 Stored sample:", storedFaceDescriptor?.slice(0, 3));
+      if (!storedFaceDescriptor) {
+        setError("No biometric template on file. Please use email code instead.");
+        setStep("code");
+        return;
+      }
 
       const euclideanDistance = calculateEuclideanDistance(descriptor, storedFaceDescriptor);
       const cosineSimilarity = calculateCosineSimilarity(descriptor, storedFaceDescriptor);
 
-      // Handle validation failures
       if (euclideanDistance === Infinity || cosineSimilarity === 0) {
-        setError("Invalid face descriptor data. Please try again with better lighting and positioning.");
-        setMatchConfidence("low");
+        setError("Face data error. Please try again with better lighting.");
+        setFaceScanned(false);
         return;
       }
 
-      console.log("🔍 Face Match Analysis:");
-      console.log("📊 Euclidean Distance:", euclideanDistance.toFixed(3));
-      console.log("📈 Cosine Similarity:", cosineSimilarity.toFixed(3));
-      console.log("✅ Distance Threshold: 0.8");
-      console.log("🎯 Similarity Threshold: 0.7");
+      // More lenient thresholds for webcam conditions
+      const EUCLIDEAN_THRESHOLD = 1.2;
+      const COSINE_THRESHOLD = 0.5;
 
-      // Use both metrics for better accuracy
-      const distanceMatch = euclideanDistance < 0.8;
-      const similarityMatch = cosineSimilarity > 0.7;
+      const distanceMatch = euclideanDistance < EUCLIDEAN_THRESHOLD;
+      const similarityMatch = cosineSimilarity > COSINE_THRESHOLD;
 
-      console.log("🎯 Distance Match:", distanceMatch ? "PASS" : "FAIL");
-      console.log("🎯 Similarity Match:", similarityMatch ? "PASS" : "FAIL");
-
-      // More flexible matching - accept if either metric passes
       const overallMatch = distanceMatch || similarityMatch;
       const highConfidence = distanceMatch && similarityMatch;
 
-      // Set confidence for UI feedback
       if (overallMatch) {
         setMatchConfidence(highConfidence ? "high" : "medium");
+        setFaceScanned(true);
+        setTimeout(() => setStep("code"), 1200);
       } else {
         setMatchConfidence("low");
-      }
-
-      console.log("🏆 Overall Match:", overallMatch ? "SUCCESS" : "FAILED");
-      console.log("🔥 Confidence:", highConfidence ? "HIGH" : "MEDIUM");
-
-      if (overallMatch) {
-        setTimeout(() => setStep("code"), 1500);
-      } else {
-        setError(`Biometric verification failed. Distance: ${euclideanDistance.toFixed(3)}, Similarity: ${cosineSimilarity.toFixed(3)}. Ensure good lighting and face position.`);
+        setFaceScanned(false);
+        setError(
+          `Face didn't match sufficiently (score: ${euclideanDistance.toFixed(2)}). ` +
+          `Try better lighting, remove accessories, or use the email code below.`
+        );
       }
     } catch (err: any) {
-      console.error("❌ Face capture error:", err);
-      setError(err.message || "Failed to process biometric data.");
-      setMatchConfidence("low");
+      setError(err.message || "Face verification failed.");
+      setFaceScanned(false);
     }
-  };
+  }, [storedFaceDescriptor]);
 
   const handleChange = (index: number, value: string) => {
     const val = value.toUpperCase().slice(0, 1);
@@ -224,11 +233,7 @@ function MFAContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:5000/api/auth/resend-mfa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
+      const res = await api.post("/auth/resend-mfa", { userId });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to resend code");
       
@@ -253,17 +258,18 @@ function MFAContent() {
     try {
       const device = navigator.userAgent.includes("Mobi") ? "Mobile Device" : "Desktop Browser";
 
-      const res = await fetch("http://localhost:5000/api/auth/verify-mfa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, code: finalCode, device }),
-      });
+      const res = await api.post("/auth/verify-mfa", { userId, code: finalCode, device });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Verification failed");
 
-      localStorage.setItem("token", data.token);
-      if (data.role === 'ROLE_ADMIN') {
+      localStorage.setItem("token", data.accessToken || data.token);
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+      if (returnTo) {
+        router.push(returnTo);
+      } else if (data.role === 'ROLE_ADMIN') {
         router.push("/admin");
       } else {
         router.push("/dashboard");
@@ -298,20 +304,40 @@ function MFAContent() {
       <div className="max-w-md w-full text-center">
         {step === "face" ? (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <FaceAuth mode="login" onCapture={handleFaceCapture} />
+            <FaceAuth key={scanKey} mode="login" onCapture={handleFaceCapture} />
 
             <div className="max-w-[300px] mx-auto">
               <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Biometric Access</h1>
               <p className="text-muted-foreground text-sm leading-relaxed px-4 font-medium">
-                Position your face within the frame to securely unlock your Marjane Wallet.
+                {faceScanned ? "Verifying identity..." : "Position your face within the frame to securely unlock your Marjane Wallet."}
               </p>
             </div>
+
+            {/* Retry / fallback buttons when match fails */}
+            {error && matchConfidence === "low" && (
+              <div className="flex flex-col gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setScanKey(k => k + 1); setFaceScanned(false); }}
+                  className="w-full bg-card hover:bg-card/80 text-foreground font-bold py-4 rounded-[2rem] border border-border transition-all cursor-pointer"
+                >
+                  Try Face Scan Again
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setStep("code"); }}
+                  className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  Use Email Code Instead
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="text-center mb-10">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-white mb-6 border border-foreground/5 shadow-xl p-4">
-                <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-card mb-6 border border-foreground/5 shadow-xl p-4">
+                <img loading="lazy" src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
               </div>
               <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Identity Confirmed</h1>
               <p className="text-muted-foreground font-medium">
@@ -369,8 +395,8 @@ function MFAContent() {
         {/* Floating Security Note */}
         <div className="mt-12 p-6 bg-card/30 rounded-[2rem] flex items-start gap-4 border border-border backdrop-blur-3xl relative overflow-hidden group hover:border-primary/30 transition-colors">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shrink-0 p-2 shadow-sm border border-foreground/5">
-             <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
+          <div className="w-12 h-12 rounded-2xl bg-card flex items-center justify-center shrink-0 p-2 shadow-sm border border-foreground/5">
+             <img loading="lazy" src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
           </div>
           <div className="text-left relative z-10">
             <h4 className="text-foreground text-sm font-black uppercase tracking-widest mb-1">Advanced Protection</h4>

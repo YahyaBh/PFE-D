@@ -1,58 +1,87 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, QrCode, ArrowRight, Loader2, CheckCircle2, AlertCircle, Scan, User, Sparkles, Zap, ShieldCheck } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { useState } from "react";
+import { X, ArrowRight, Loader2, CheckCircle2, AlertCircle, Scan, User } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface QRScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   senderBalance: number;
   onSuccess: () => void;
+  wallets?: { id: string; currency: string; balance: number; type?: string }[];
 }
 
 import QRScanner from "./QRScanner";
 
-export default function QRScannerModal({ isOpen, onClose, senderBalance, onSuccess }: QRScannerModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Scanning, 2: Found, 3: Confirm, 4: Success
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default function QRScannerModal({ isOpen, onClose, senderBalance, onSuccess, wallets = [] }: QRScannerModalProps) {
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState<any>(null);
+  const [cryptoWallet, setCryptoWallet] = useState<any>(null);
+  const [sendCurrency, setSendCurrency] = useState("");
 
   const handleScanSuccess = async (decodedText: string) => {
     setLoading(true);
     setError("");
+    setCryptoWallet(null);
     try {
-      // Logic to handle different QR formats (JSON or plain ID)
       let scannedData: any;
-      try {
-        scannedData = JSON.parse(decodedText);
-      } catch {
-        scannedData = { id: decodedText };
+
+      const merchantMatch = decodedText.match(/^marjane:merchant:(.+)$/);
+      if (merchantMatch) {
+        const merchantRes = await api.get(`/merchant/qr-lookup?merchantId=${merchantMatch[1]}`);
+        if (!merchantRes.ok) {
+          setError("Merchant not found");
+          setTimeout(() => onClose(), 2000);
+          return;
+        }
+        const merchantData = await merchantRes.json();
+        scannedData = { id: merchantData.ownerId, name: merchantData.businessName, type: "merchant" };
+      } else {
+        try {
+          scannedData = JSON.parse(decodedText);
+        } catch {
+          scannedData = { id: decodedText };
+        }
+        if (!scannedData.id) throw new Error("Invalid QR Code: ID missing");
       }
 
-      if (!scannedData.id) throw new Error("Invalid QR Code: ID missing");
+      const rawId = scannedData.id;
 
-      // Fetch full recipient details from backend if not in QR
+      // Check if scanned ID is a wallet_accounts UUID (crypto vault address)
+      if (UUID_REGEX.test(rawId)) {
+        const walletRes = await api.get(`/wallet/lookup/${rawId}`);
+        if (walletRes.ok) {
+          const walletData = await walletRes.json();
+          if (walletData.type === 'crypto') {
+            setCryptoWallet(walletData);
+            setStep(3);
+            setLoading(false);
+            return;
+          }
+          scannedData = { id: walletData.user_id, name: walletData.userName, email: walletData.userEmail };
+        }
+      }
+
       if (!scannedData.name) {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5000/api/transactions/search?query=${scannedData.id}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const res = await api.get(`/transactions/search?query=${rawId}`);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Recipient not found");
+        if (!res.ok) {
+          setError(data.error || "Recipient not found");
+          setTimeout(() => onClose(), 2000);
+          return;
+        }
         setRecipient(data);
       } else {
         setRecipient(scannedData);
       }
 
-      setStep(3); // Advance to amount input
+      setStep(3);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -64,30 +93,37 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
 
   const handlePay = async () => {
     if (!amount || parseFloat(amount) <= 0) return;
-    if (parseFloat(amount) > senderBalance) {
+    if (parseFloat(amount) > senderBalance && !cryptoWallet) {
         setError("Insufficient liquidity");
         return;
     }
 
     setLoading(true);
     setError("");
-    const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:5000/api/transactions/qr-pay", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ 
+      if (cryptoWallet) {
+        const senderVault = wallets.find((w: any) => w.currency === sendCurrency && w.type === 'crypto');
+        if (!senderVault) throw new Error("No crypto vault for selected currency");
+        if (parseFloat(amount) > (senderVault.balance || 0)) throw new Error("Insufficient crypto balance");
+        const res = await api.post("/transactions/transfer", {
+          amount: parseFloat(amount),
+          currency: cryptoWallet.currency,
+          sourceCurrency: sendCurrency,
+          recipientWalletId: cryptoWallet.id,
+          senderWalletId: senderVault.id,
+          type: 'P2P_TRANSFER'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Transfer failed");
+      } else {
+        const res = await api.post("/transactions/qr-payment", { 
           receiverId: recipient.id, 
           amount: parseFloat(amount)
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Payment synchronization failed");
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Payment synchronization failed");
+      }
       
       setStep(4);
       onSuccess();
@@ -109,45 +145,56 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-background/60 backdrop-blur-2xl animate-in fade-in duration-700"
+      <div
+        className="fixed inset-0 animate-in fade-in duration-700"
         onClick={reset}
+        style={{ background: "rgba(10,14,26,0.7)", backdropFilter: "blur(24px)" }}
       />
       
-      {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-white dark:bg-card rounded-[4rem] shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-12 duration-700 ease-out overflow-hidden shadow-primary/5">
+      {/* Modal Card — dark glassmorphism matching dashboard widgets */}
+      <div
+        className="relative w-full max-w-lg rounded-3xl animate-in zoom-in-95 slide-in-from-bottom-12 duration-700 ease-out overflow-hidden"
+        style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+        }}
+      >
+        {/* Top glow accent line */}
+        <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)" }} />
         
         {/* Header */}
-        <div className="px-12 py-10 flex items-center justify-between bg-primary text-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-zellige-soft opacity-10 pointer-events-none" />
-          <div className="relative z-10 flex items-center gap-6">
-            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/5">
-                <Scan className="w-8 h-8 text-secondary" />
+        <div className="px-7 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,215,0,0.1)" }}>
+              <Scan className="w-5 h-5" style={{ color: "#FFD700" }} />
             </div>
             <div>
-                <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Scan & Pay</h2>
-                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/40 mt-1">Instant Payment Protocol</p>
+              <h2 className="text-lg font-bold tracking-tight text-white">Scan & Pay</h2>
+              <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "#64748B" }}>Instant Payment Protocol</p>
             </div>
           </div>
-          <button 
-            onClick={reset} 
-            className="relative z-10 w-14 h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white hover:text-primary transition-all active:scale-95"
+          <button
+            onClick={reset}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-white/5 active:scale-90"
+            style={{ color: "#64748B" }}
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-12 space-y-12">
+        <div className="px-7 pb-7 space-y-6">
           {error && (
-            <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] flex items-center gap-6 animate-in slide-in-from-top-4 duration-500">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-red-600">{error}</p>
+            <div className="p-4 rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.15)" }}>
+              <AlertCircle className="w-5 h-5 shrink-0" style={{ color: "#EF4444" }} />
+              <p className="text-[11px] font-semibold" style={{ color: "#EF4444" }}>{error}</p>
             </div>
           )}
 
           {/* Step 1: Real QR Scanning */}
           {step === 1 && (
-            <div className="flex flex-col items-center py-8 animate-in fade-in duration-700">
+            <div className="flex flex-col items-center py-4 animate-in fade-in duration-700">
               <div className="relative w-full max-w-sm">
                 <QRScanner 
                   onScanSuccess={handleScanSuccess}
@@ -159,16 +206,16 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
                 />
                 
                 {/* Decorative Overlay */}
-                <div className="absolute inset-0 pointer-events-none border-2 border-primary/20 rounded-[2rem] m-2" />
+                <div className="absolute inset-0 pointer-events-none rounded-2xl m-2" style={{ border: "1px solid rgba(255,215,0,0.15)" }} />
               </div>
 
-              <div className="mt-12 space-y-3 text-center">
-                <p className="text-[12px] font-black uppercase tracking-[0.6em] text-foreground animate-pulse">Scanning QR Code</p>
-                <p className="text-[9px] font-bold text-foreground/20 uppercase tracking-[0.4em]">Establish Secure Connection</p>
+              <div className="mt-8 space-y-2 text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-widest animate-pulse" style={{ color: "#94A3B8" }}>Scanning QR Code</p>
+                <p className="text-[9px] font-medium uppercase tracking-wider" style={{ color: "#475569" }}>Establish Secure Connection</p>
               </div>
               
               {loading && (
-                <div className="mt-6 flex items-center gap-3 text-primary font-black uppercase tracking-widest text-[10px] animate-pulse">
+                <div className="mt-5 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-widest animate-pulse" style={{ color: "#FFD700" }}>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Processing Scan...</span>
                 </div>
@@ -177,80 +224,155 @@ export default function QRScannerModal({ isOpen, onClose, senderBalance, onSucce
           )}
 
           {/* Step 2 & 3: Recipient Found & Confirm */}
-          {(step === 2 || step === 3) && recipient && (
-            <div className="space-y-12 animate-in slide-in-from-bottom-12 duration-700 ease-out">
-              <div className="text-center space-y-8">
-                <div className="relative inline-block">
-                    <div className="absolute inset-0 bg-secondary/20 rounded-full blur-[30px]" />
-                    <div className="relative w-32 h-32 rounded-full border-4 border-white dark:border-card bg-secondary flex items-center justify-center shadow-xl">
-                        <User className="w-14 h-14 text-primary" />
+          {(step === 2 || step === 3) && (recipient || cryptoWallet) && (
+            <div className="space-y-6 animate-in fade-in duration-700">
+              {cryptoWallet ? (
+                <>
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: cryptoWallet.currency === 'BTC' ? 'rgba(247,147,26,0.2)' : cryptoWallet.currency === 'ETH' ? 'rgba(98,126,234,0.2)' : 'rgba(38,161,123,0.2)' }}>
+                      <span className="text-2xl font-bold" style={{ color: cryptoWallet.currency === 'BTC' ? '#F7931A' : cryptoWallet.currency === 'ETH' ? '#627EEA' : '#26A17B' }}>
+                        {cryptoWallet.currency === 'BTC' ? '₿' : cryptoWallet.currency === 'ETH' ? 'Ξ' : '₮'}
+                      </span>
                     </div>
-                </div>
-                <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-4">
-                        <h3 className="text-4xl font-black uppercase tracking-tighter text-foreground">{recipient.name}</h3>
-                        <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Send {cryptoWallet.currency}</h3>
+                      <p className="text-[10px] font-mono mt-1" style={{ color: "#64748B" }}>{cryptoWallet.id}</p>
+                      {cryptoWallet.userName && <p className="text-[11px] mt-1" style={{ color: "#94A3B8" }}>{cryptoWallet.userName}</p>}
                     </div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-foreground/20 italic">{recipient.email}</p>
-                </div>
-              </div>
+                  </div>
 
-              <div className="space-y-6">
-                <div className="flex justify-between items-end px-6">
-                  <label className="text-[11px] font-black uppercase tracking-[0.4em] text-foreground/20">Payment Amount</label>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">Balance: {senderBalance.toFixed(0)} MAD</span>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-12 top-1/2 -translate-y-1/2 text-4xl font-black text-foreground/5 tracking-tighter italic">MAD</span>
-                  <input 
-                    autoFocus
-                    type="number"
-                    placeholder="0.00"
-                    className="w-full bg-foreground/5 border-none rounded-[3.5rem] py-12 pl-36 pr-12 text-7xl font-black text-foreground focus:ring-4 focus:ring-primary/10 transition-all text-right placeholder:text-foreground/5 shadow-inner"
-                    value={amount}
-                    onChange={(e) => {
-                        setAmount(e.target.value);
-                        setStep(3);
-                    }}
-                  />
-                </div>
-              </div>
+                  {/* Crypto currency selector */}
+                  {wallets.filter((w: any) => w.type === 'crypto').length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#64748B" }}>From your vault</label>
+                      <div className="flex gap-2 p-1 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        {wallets.filter((w: any) => w.type === 'crypto').map((vw: any) => (
+                          <button
+                            key={vw.currency}
+                            onClick={() => setSendCurrency(vw.currency)}
+                            className="flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                            style={{
+                              background: sendCurrency === vw.currency ? "linear-gradient(135deg, #FFD700, #FFE135)" : "transparent",
+                              color: sendCurrency === vw.currency ? "#0A0E1A" : "#475569",
+                            }}
+                          >
+                            {vw.currency} <span className="block text-[8px] font-normal">{(vw.balance || 0).toFixed(4)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              <button 
-                disabled={!amount || loading || parseFloat(amount) <= 0 || parseFloat(amount) > senderBalance}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#64748B" }}>Amount</label>
+                      <span className="text-[10px] font-medium" style={{ color: "#475569" }}>Available: {(wallets.find((w: any) => w.currency === sendCurrency && w.type === 'crypto')?.balance || 0).toFixed(8)} {sendCurrency}</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold" style={{ color: "#475569" }}>{sendCurrency || cryptoWallet.currency}</span>
+                      <input
+                        autoFocus
+                        type="number"
+                        placeholder="0.00"
+                        className="w-full rounded-2xl py-5 pl-20 pr-5 text-3xl font-bold text-right outline-none transition-all placeholder:text-sm"
+                        style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                        }}
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center space-y-5">
+                    <div className="relative inline-block">
+                      <div className="absolute inset-0 rounded-full" style={{ background: "rgba(255,215,0,0.08)", filter: "blur(20px)" }} />
+                      <div className="relative w-20 h-20 rounded-full flex items-center justify-center" style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.15)" }}>
+                        <User className="w-9 h-9" style={{ color: "#FFD700" }} />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{recipient.name}</h3>
+                      <p className="text-[11px] mt-1" style={{ color: "#64748B" }}>{recipient.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#64748B" }}>Payment Amount</label>
+                      <span className="text-[10px] font-medium" style={{ color: "#475569" }}>Balance: {senderBalance.toFixed(0)} MAD</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold" style={{ color: "#475569" }}>MAD</span>
+                      <input
+                        autoFocus
+                        type="number"
+                        placeholder="0.00"
+                        className="w-full rounded-2xl py-5 pl-16 pr-5 text-3xl font-bold text-right outline-none transition-all placeholder:text-sm"
+                        style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                        }}
+                        value={amount}
+                        onChange={(e) => {
+                            setAmount(e.target.value);
+                            setStep(3);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <button
+                disabled={!amount || loading || parseFloat(amount) <= 0 || (cryptoWallet ? (!sendCurrency || parseFloat(amount) > (wallets.find((w: any) => w.currency === sendCurrency && w.type === 'crypto')?.balance || 0)) : parseFloat(amount) > senderBalance)}
                 onClick={handlePay}
-                className="w-full h-24 bg-primary text-white rounded-full font-black flex items-center justify-center gap-6 transition-all hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20 uppercase tracking-[0.3em] text-sm group disabled:grayscale disabled:opacity-30"
+                className="w-full rounded-2xl py-5 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-3"
+                style={{
+                  background: !amount || loading ? "rgba(255,255,255,0.03)" : "linear-gradient(135deg, #FFD700, #FFE135)",
+                  color: !amount || loading ? "#475569" : "#0A0E1A",
+                  boxShadow: !amount || loading ? "none" : "0 4px 15px rgba(255,215,0,0.25)",
+                }}
               >
-                {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <>Confirm Payment <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" /></>}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{cryptoWallet ? 'Send Crypto' : 'Confirm Payment'} <ArrowRight className="w-4 h-4" /></>}
               </button>
             </div>
           )}
 
-          {/* Step 4: Success Screen */}
+          {/* Step 4: Success */}
           {step === 4 && (
-            <div className="text-center py-20 px-8 space-y-12 animate-in zoom-in-95 duration-700">
-                <div className="relative inline-block">
-                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-[40px] animate-pulse" />
-                    <div className="relative w-40 h-40 rounded-full bg-primary flex items-center justify-center shadow-2xl">
-                        <CheckCircle2 className="w-20 h-20 text-white" />
-                    </div>
+            <div className="text-center py-12 px-4 space-y-6 animate-in zoom-in-95 duration-700">
+              <div className="relative inline-block">
+                <div className="absolute inset-0 rounded-full animate-pulse" style={{ background: "rgba(255,215,0,0.15)", filter: "blur(20px)" }} />
+                <div className="relative w-20 h-20 rounded-full flex items-center justify-center" style={{ background: "rgba(255,215,0,0.15)" }}>
+                  <CheckCircle2 className="w-10 h-10" style={{ color: "#FFD700" }} />
                 </div>
-                
-                <div className="space-y-4">
-                    <h3 className="text-5xl font-black uppercase tracking-tighter">Payment Complete</h3>
-                    <p className="text-foreground/40 font-medium uppercase tracking-[0.3em] text-[11px] leading-relaxed max-w-sm mx-auto">
-                        Sent <span className="text-primary font-black italic">{parseFloat(amount).toLocaleString()} MAD</span> to <span className="text-foreground font-black">{recipient.name.toUpperCase()}</span>.
-                    </p>
-                </div>
-
-                <div className="pt-8">
-                    <button 
-                        onClick={reset}
-                        className="w-full bg-foreground text-background dark:bg-white dark:text-black rounded-full font-black h-20 uppercase tracking-[0.4em] text-xs hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all shadow-xl active:scale-95"
-                    >
-                        Close Session
-                    </button>
-                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-white">{cryptoWallet ? 'Crypto Sent' : 'Payment Complete'}</h3>
+                <p className="text-sm" style={{ color: "#94A3B8" }}>
+                  {cryptoWallet
+                    ? <>Sent <span className="font-semibold" style={{ color: "#FFD700" }}>{parseFloat(amount).toLocaleString()} {sendCurrency || cryptoWallet.currency}</span> to vault <span className="font-mono text-[10px] text-white">{cryptoWallet.id.slice(0,8)}...</span>.</>
+                    : <>Sent <span className="font-semibold" style={{ color: "#FFD700" }}>{parseFloat(amount).toLocaleString()} MAD</span> to <span className="font-semibold text-white">{recipient.name.toUpperCase()}</span>.</>
+                  }
+                </p>
+              </div>
+              <button
+                onClick={reset}
+                className="w-full rounded-2xl py-4 text-[11px] font-bold uppercase tracking-widest transition-all active:scale-95"
+                style={{
+                  background: "linear-gradient(135deg, #FFD700, #FFE135)",
+                  color: "#0A0E1A",
+                  boxShadow: "0 4px 15px rgba(255,215,0,0.25)",
+                }}
+              >
+                Close Session
+              </button>
             </div>
           )}
         </div>

@@ -1,31 +1,53 @@
 const db = require('../lib/db');
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
+
+// Schema handled by migrations
+async function fixNotificationSchema() {}
+
+fixNotificationSchema().catch(console.error);
 
 /**
- * Self-healing DB check for notifications table - Aligned with Production Schema
+ * SSE endpoint: streams unread notification count every 30 seconds
  */
-async function fixNotificationSchema() {
-    const conn = await db.getConnection();
-    try {
-        await conn.query(`
-            CREATE TABLE IF NOT EXISTS notifications (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id VARCHAR(36) NOT NULL,
-                type VARCHAR(50) NOT NULL, -- 'PAYMENT', 'REQUEST', 'SECURITY', 'REWARD'
-                title VARCHAR(255) NOT NULL,
-                message TEXT NOT NULL,
-                is_read BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_user_read (user_id, is_read)
-            )
-        `);
-    } finally {
-        conn.release();
-    }
-}
+const streamNotifications = async (req, res) => {
+    // Auth is verified by middleware before this point
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+    });
 
-// Run schema fix on load
-fixNotificationSchema().catch(console.error);
+    res.write('event: connected\ndata: {}\n\n');
+
+    const userId = req.user.id;
+    let lastUnreadCount = -1;
+
+    const sendUnreadCount = async () => {
+        try {
+            const [rows] = await db.query(
+                'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE',
+                [userId]
+            );
+            const count = rows[0].count;
+            if (count !== lastUnreadCount) {
+                lastUnreadCount = count;
+                res.write(`event: unread_count\ndata: ${JSON.stringify({ count })}\n\n`);
+            }
+        } catch (err) {
+            res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+        }
+    };
+
+    // Send immediately, then every 30 seconds
+    await sendUnreadCount();
+    const interval = setInterval(sendUnreadCount, 30000);
+
+    req.on('close', () => {
+        clearInterval(interval);
+    });
+};
 
 const getNotifications = async (req, res) => {
     try {
@@ -98,5 +120,6 @@ module.exports = {
     markAsRead,
     markAllAsRead,
     createNotification,
-    deleteNotification
+    deleteNotification,
+    streamNotifications
 };

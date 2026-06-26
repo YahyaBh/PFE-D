@@ -1,25 +1,12 @@
 const db = require('../lib/db');
 const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
-const limitController = require('./limitController');
 const { logAudit } = require('../lib/auditLogger');
 const ledgerService = require('../services/ledgerService');
+const logger = require('../lib/logger');
 
-// 0. SELF-HEALING DB LOGIC (Add note column and fix ENUMs if needed)
-const fixTransactionSchema = async () => {
-    try {
-        // Add note column if it doesn't exist
-        await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS note VARCHAR(255) AFTER currency`).catch(e => {});
-        await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS sender_wallet_id VARCHAR(36) AFTER id`).catch(e => {});
-        await db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receiver_wallet_id VARCHAR(36) AFTER sender_wallet_id`).catch(e => {});
-        
-        // Modify columns to be snake_case (this is a conceptual alignment for self-healing)
-        await db.query(`ALTER TABLE transactions MODIFY COLUMN type VARCHAR(50) NOT NULL`).catch(e => {});
-        await db.query(`ALTER TABLE transactions MODIFY COLUMN status VARCHAR(20) DEFAULT 'PENDING'`).catch(e => {});
-    } catch (e) {
-        console.log('Self-healing note (transactions):', e.message);
-    }
-};
+// Schema handled by migrations
+const fixTransactionSchema = async () => {};
 fixTransactionSchema();
 
 const searchUser = async (req, res) => {
@@ -47,133 +34,34 @@ const searchUser = async (req, res) => {
     }
 };
 
-const transferMoney = async (req, res) => {
-    const { receiverId, amount, currency } = req.body;
-    const senderId = req.user.id;
 
-    if (!receiverId || !amount || amount <= 0) {
-        return res.status(400).json({ error: 'Invalid transfer details' });
-    }
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-        // 1. Get sender wallet and check balance
-        const [senderWallets] = await connection.query(
-            'SELECT id, balance FROM wallets WHERE user_id = ?',
-            [senderId]
-        );
-        const senderWallet = senderWallets[0];
-
-        if (!senderWallet || parseFloat(senderWallet.balance) < parseFloat(amount)) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Insufficient balance' });
-        }
-
-        // 1.1 Check transaction limits
-        try {
-            await limitController.checkLimit(senderId, 'transfer', amount);
-        } catch (err) {
-            await connection.rollback();
-            return res.status(400).json({ error: err.message });
-        }
-
-        // 2. Get receiver wallet
-        const [receiverWallets] = await connection.query(
-            'SELECT id FROM wallets WHERE user_id = ?',
-            [receiverId]
-        );
-        const receiverWallet = receiverWallets[0];
-
-        if (!receiverWallet) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Receiver wallet not found' });
-        }
-
-        // 3. Perform transfer
-        await connection.query(
-            'UPDATE wallets SET balance = balance - ? WHERE id = ?',
-            [amount, senderWallet.id]
-        );
-
-        await connection.query(
-            'UPDATE wallets SET balance = balance + ? WHERE id = ?',
-            [amount, receiverWallet.id]
-        );
-
-        // 4. Record transaction and Ledger Entries
-        const transactionId = uuidv4();
-        await connection.query(
-            'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [transactionId, senderWallet.id, receiverWallet.id, amount, currency || 'MAD', 'P2P_TRANSFER', 'COMPLETED']
-        );
-
-        // LEDGER: Debit Sender (-), Credit Receiver (+)
-        await ledgerService.recordTransaction(connection, transactionId, [
-            { accountId: senderWallet.id, amount: -parseFloat(amount), description: `Transfer to ${receiverId}` },
-            { accountId: receiverWallet.id, amount: parseFloat(amount), description: `Transfer from ${senderId}` }
-        ]);
-
-        // EXTRA: Loyalty Points (1 point per 100 MAD)
-        const pointsEarned = Math.floor(parseFloat(amount) / 100);
-        if (pointsEarned > 0) {
-            await connection.query('UPDATE users SET loyalty_points = loyalty_points + ? WHERE id = ?', [pointsEarned, senderId]);
-        }
-
-        await connection.commit();
-
-        // 5. Trigger Notifications
-        await notificationController.createNotification(
-            senderId, 
-            'PAYMENT', 
-            'Money Sent', 
-            `You sent ${amount} ${currency || 'MAD'} to recipient.`
-        );
-        await notificationController.createNotification(
-            receiverId, 
-            'PAYMENT', 
-            'Money Received', 
-            `You received ${amount} ${currency || 'MAD'} from sender.`
-        );
-
-        await logAudit(req, 'WALLET_TRANSFER', 'wallet', null, { to: receiverId, amount, currency, transactionId });
-
-        res.json({ message: 'Transfer successful', transactionId });
-    } catch (err) {
-        await connection.rollback();
-        console.error(err);
-        res.status(500).json({ error: 'Server error during transfer' });
-    } finally {
-        connection.release();
-    }
-};
 
 const getRecentTransactions = async (req, res) => {
     try {
         const userId = req.user.id;
-        
-        // Get wallet ID first
-        const [wallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [userId]);
-        const walletId = wallets[0]?.id;
 
-        if (!walletId) {
+        const [accounts] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ?', [userId]);
+        const accountIds = accounts.map(a => a.id);
+
+        if (accountIds.length === 0) {
             return res.json([]);
         }
 
+        const placeholders = accountIds.map(() => '?').join(',');
+
         const [transactions] = await db.query(`
-            SELECT t.*, 
+            SELECT t.id, t.sender_wallet_id, t.receiver_wallet_id, t.amount, t.currency, t.type, t.status, t.note, t.created_at,
                    su.name as senderName, su.email as senderEmail,
                    ru.name as receiverName, ru.email as receiverEmail
             FROM transactions t
-            LEFT JOIN wallets sw ON t.sender_wallet_id = sw.id
+            LEFT JOIN wallet_accounts sw ON t.sender_wallet_id = sw.id
             LEFT JOIN users su ON sw.user_id = su.id
-            LEFT JOIN wallets rw ON t.receiver_wallet_id = rw.id
+            LEFT JOIN wallet_accounts rw ON t.receiver_wallet_id = rw.id
             LEFT JOIN users ru ON rw.user_id = ru.id
-            WHERE t.sender_wallet_id = ? OR t.receiver_wallet_id = ?
+            WHERE t.sender_wallet_id IN (${placeholders}) OR t.receiver_wallet_id IN (${placeholders})
             ORDER BY t.created_at DESC
             LIMIT 20
-        `, [walletId, walletId]);
+        `, [...accountIds, ...accountIds]);
 
         res.json(transactions);
     } catch (err) {
@@ -191,9 +79,8 @@ const requestMoney = async (req, res) => {
     }
 
     try {
-        // Get requester and recipient wallet IDs
-        const [requesterWallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [requesterId]);
-        const [recipientWallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [recipientId]);
+        const [requesterWallets] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = ?', [requesterId, 'MAD']);
+        const [recipientWallets] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = ?', [recipientId, 'MAD']);
 
         if (!requesterWallets[0] || !recipientWallets[0]) {
             return res.status(404).json({ error: 'Wallet not found' });
@@ -216,7 +103,7 @@ const requestMoney = async (req, res) => {
 const getPendingRequests = async (req, res) => {
     try {
         const userId = req.user.id;
-        const [wallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [userId]);
+        const [wallets] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = ?', [userId, 'MAD']);
         const walletId = wallets[0]?.id;
 
         if (!walletId) return res.json([]);
@@ -225,7 +112,7 @@ const getPendingRequests = async (req, res) => {
         const [requests] = await db.query(`
             SELECT t.*, su.name as requesterName, su.email as requesterEmail
             FROM transactions t
-            LEFT JOIN wallets rw ON t.receiver_wallet_id = rw.id
+            LEFT JOIN wallet_accounts rw ON t.receiver_wallet_id = rw.id
             LEFT JOIN users su ON rw.user_id = su.id
             WHERE t.sender_wallet_id = ? AND t.type = 'REQUEST' AND t.status = 'PENDING'
             ORDER BY t.created_at DESC
@@ -248,8 +135,7 @@ const processRequest = async (req, res) => {
 
         if (!transaction) return res.status(404).json({ error: 'Request not found or already processed' });
 
-        // Verify that the person approving is the sender in the request
-        const [userWallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [userId]);
+        const [userWallets] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = ?', [userId, 'MAD']);
         if (userWallets[0].id !== transaction.sender_wallet_id) {
             return res.status(403).json({ error: 'Unauthorized to process this request' });
         }
@@ -264,15 +150,13 @@ const processRequest = async (req, res) => {
         await connection.beginTransaction();
 
         try {
-            // Check balance
-            const [wallets] = await connection.query('SELECT balance FROM wallets WHERE id = ?', [transaction.sender_wallet_id]);
-            if (parseFloat(wallets[0].balance) < parseFloat(transaction.amount)) {
+            const [senderWallet] = await connection.query('SELECT balance FROM wallet_accounts WHERE id = ?', [transaction.sender_wallet_id]);
+            if (parseFloat(senderWallet[0].balance) < parseFloat(transaction.amount)) {
                 throw new Error('Insufficient balance to approve request');
             }
 
-            // Transfer
-            await connection.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [transaction.amount, transaction.sender_wallet_id]);
-            await connection.query('UPDATE wallets SET balance = balance + ? WHERE id = ?', [transaction.amount, transaction.receiver_wallet_id]);
+            await connection.query('UPDATE wallet_accounts SET balance = balance - ? WHERE id = ?', [transaction.amount, transaction.sender_wallet_id]);
+            await connection.query('UPDATE wallet_accounts SET balance = balance + ? WHERE id = ?', [transaction.amount, transaction.receiver_wallet_id]);
             
             // 4. Update status and Ledger
             await connection.query('UPDATE transactions SET status = "COMPLETED" WHERE id = ?', [requestId]);
@@ -294,8 +178,7 @@ const processRequest = async (req, res) => {
 
             // 5. Trigger Notifications
             // Notify the requester that their request was paid
-            // We need to find the user_id for transaction.receiver_wallet_id
-            const [receiverWallets] = await connection.query('SELECT user_id FROM wallets WHERE id = ?', [transaction.receiver_wallet_id]);
+            const [receiverWallets] = await connection.query('SELECT user_id FROM wallet_accounts WHERE id = ?', [transaction.receiver_wallet_id]);
             if (receiverWallets[0]) {
                 await notificationController.createNotification(
                     receiverWallets[0].user_id,
@@ -318,93 +201,63 @@ const processRequest = async (req, res) => {
     }
 };
 
-
-const withdrawMoney = async (req, res) => {
-    const { amount, method } = req.body;
-    const userId = req.user.id;
-
-    if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid withdrawal amount' });
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-        const [wallets] = await connection.query('SELECT id, balance FROM wallets WHERE user_id = ?', [userId]);
-        const wallet = wallets[0];
-
-        if (!wallet || parseFloat(wallet.balance) < parseFloat(amount)) {
-            throw new Error('Insufficient balance');
-        }
-
-        // 1.1 Check withdrawal limits
-        try {
-            await limitController.checkLimit(userId, 'withdrawal', amount);
-        } catch (err) {
-            await connection.rollback();
-            return res.status(400).json({ error: err.message });
-        }
-
-        await connection.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [amount, wallet.id]);
-
-        const transactionId = uuidv4();
-        await connection.query(
-            'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status, note) VALUES (?, ?, NULL, ?, ?, ?, ?, ?)',
-            [transactionId, wallet.id, amount, 'MAD', 'WITHDRAWAL', 'COMPLETED', `Withdrawal via ${method}`]
-        );
-
-        // LEDGER: Debit User Wallet (-), Credit System Bank (+)
-        await ledgerService.recordTransaction(connection, transactionId, [
-            { accountId: wallet.id, amount: -parseFloat(amount), description: `Withdrawal via ${method}` },
-            { accountId: 'system-bank-account', amount: parseFloat(amount), description: `Withdrawal payout for user ${userId}` }
-        ]);
-
-        await connection.commit();
-        await logAudit(req, 'WITHDRAWAL', 'wallet', null, { amount, method, transactionId });
-
-        res.json({ message: 'Withdrawal successful', transactionId });
-    } catch (err) {
-        await connection.rollback();
-        console.error(err);
-        res.status(500).json({ error: err.message || 'Server error during withdrawal' });
-    } finally {
-        connection.release();
-    }
-};
-
 const processQRPayment = async (req, res) => {
-    const { receiverId, amount } = req.body;
+    const { receiverId, merchantId, amount, description } = req.body;
     const senderId = req.user.id;
 
-    if (!receiverId || !amount || amount <= 0) {
+    if (!amount || amount <= 0) {
         return res.status(400).json({ error: 'Invalid QR payment details' });
     }
 
+    if (!receiverId && !merchantId) {
+        return res.status(400).json({ error: 'Either receiverId or merchantId is required' });
+    }
+
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
     try {
-        const [senderWallets] = await connection.query('SELECT id, balance FROM wallets WHERE user_id = ?', [senderId]);
+        const [senderWallets] = await connection.query('SELECT id, balance FROM wallet_accounts WHERE user_id = ? AND currency = ? FOR UPDATE', [senderId, 'MAD']);
         const senderWallet = senderWallets[0];
 
         if (!senderWallet || parseFloat(senderWallet.balance) < parseFloat(amount)) {
             throw new Error('Insufficient balance');
         }
 
-        const [receiverWallets] = await connection.query('SELECT id FROM wallets WHERE user_id = ?', [receiverId]);
-        const receiverWallet = receiverWallets[0];
+        let receiverWallet;
+        let receiverUserId;
 
-        if (!receiverWallet) throw new Error('Receiver wallet not found');
+        if (merchantId) {
+            const [merchantWallets] = await connection.query(
+                'SELECT id, merchant_id FROM merchant_wallets WHERE merchant_id = ?',
+                [merchantId]
+            );
+            if (merchantWallets.length === 0) throw new Error('Merchant wallet not found');
 
-        await connection.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [amount, senderWallet.id]);
-        await connection.query('UPDATE wallets SET balance = balance + ? WHERE id = ?', [amount, receiverWallet.id]);
+            receiverWallet = merchantWallets[0];
+
+            const [ownerRows] = await connection.query(
+                'SELECT user_id FROM merchant_users WHERE merchant_id = ? AND role = ?',
+                [merchantId, 'OWNER']
+            );
+            receiverUserId = ownerRows.length > 0 ? ownerRows[0].user_id : null;
+        } else {
+            const [receiverWallets] = await connection.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = ?', [receiverId, 'MAD']);
+            receiverWallet = receiverWallets[0];
+            if (!receiverWallet) throw new Error('Receiver wallet not found');
+            receiverUserId = receiverId;
+        }
+
+        await connection.query('UPDATE wallet_accounts SET balance = balance - ? WHERE id = ?', [amount, senderWallet.id]);
+        await connection.query('UPDATE wallet_accounts SET balance = balance + ? WHERE id = ?', [amount, receiverWallet.id]);
 
         const transactionId = uuidv4();
+        const note = description || 'Payment via QR Scan';
         await connection.query(
             'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [transactionId, senderWallet.id, receiverWallet.id, amount, 'MAD', 'QR_PAYMENT', 'COMPLETED', 'Payment via QR Scan']
+            [transactionId, senderWallet.id, receiverWallet.id, amount, 'MAD', 'QR_PAYMENT', 'COMPLETED', note]
         );
 
-        // LEDGER: Debit Sender (-), Credit Receiver (+)
         await ledgerService.recordTransaction(connection, transactionId, [
             { accountId: senderWallet.id, amount: -parseFloat(amount), description: 'QR Payment Out' },
             { accountId: receiverWallet.id, amount: parseFloat(amount), description: 'QR Payment In' }
@@ -412,20 +265,28 @@ const processQRPayment = async (req, res) => {
 
         await connection.commit();
 
-        // 5. Trigger Notifications
         await notificationController.createNotification(
-            senderId, 
-            'PAYMENT', 
-            'QR Payment Successful', 
+            senderId,
+            'PAYMENT',
+            'QR Payment Successful',
             `You paid ${amount} MAD via QR Scan.`
         );
 
-        await logAudit(req, 'QR_PAYMENT', 'wallet', null, { receiverId, amount, transactionId });
+        if (receiverUserId) {
+            await notificationController.createNotification(
+                receiverUserId,
+                'PAYMENT',
+                'QR Payment Received',
+                `You received ${amount} MAD via QR Scan.`
+            );
+        }
 
-        res.json({ message: 'QR Payment successful', transactionId });
+        await logAudit(req, 'QR_PAYMENT', 'wallet', null, { receiverId, merchantId, amount, transactionId });
+
+        res.json({ message: 'QR Payment successful', transactionId, merchantId: merchantId || null });
     } catch (err) {
         await connection.rollback();
-        console.error(err);
+        logger.error(err);
         res.status(500).json({ error: err.message || 'Server error during QR payment' });
     } finally {
         connection.release();
@@ -454,13 +315,12 @@ const getTransactionHistory = async (req, res) => {
         const offset = (pageNum - 1) * limitNum;
 
         // Get ALL wallet IDs for this user (multi-currency)
-        const [wallets] = await db.query('SELECT id FROM wallets WHERE user_id = ?', [userId]);
+        const [wallets] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ?', [userId]);
         if (wallets.length === 0) return res.json({ transactions: [], total: 0, page: pageNum, totalPages: 0 });
 
         const walletIds = wallets.map(w => w.id);
         const walletPlaceholders = walletIds.map(() => '?').join(',');
 
-        // Build WHERE clauses
         let conditions = [`(t.sender_wallet_id IN (${walletPlaceholders}) OR t.receiver_wallet_id IN (${walletPlaceholders}))`];
         let params = [...walletIds, ...walletIds];
 
@@ -505,9 +365,9 @@ const getTransactionHistory = async (req, res) => {
         const [countResult] = await db.query(`
             SELECT COUNT(*) as total
             FROM transactions t
-            LEFT JOIN wallets sw ON t.sender_wallet_id = sw.id
+            LEFT JOIN wallet_accounts sw ON t.sender_wallet_id = sw.id
             LEFT JOIN users su ON sw.user_id = su.id
-            LEFT JOIN wallets rw ON t.receiver_wallet_id = rw.id
+            LEFT JOIN wallet_accounts rw ON t.receiver_wallet_id = rw.id
             LEFT JOIN users ru ON rw.user_id = ru.id
             WHERE ${whereClause}
         `, params);
@@ -521,9 +381,9 @@ const getTransactionHistory = async (req, res) => {
                    su.name as senderName, su.email as senderEmail,
                    ru.name as receiverName, ru.email as receiverEmail
             FROM transactions t
-            LEFT JOIN wallets sw ON t.sender_wallet_id = sw.id
+            LEFT JOIN wallet_accounts sw ON t.sender_wallet_id = sw.id
             LEFT JOIN users su ON sw.user_id = su.id
-            LEFT JOIN wallets rw ON t.receiver_wallet_id = rw.id
+            LEFT JOIN wallet_accounts rw ON t.receiver_wallet_id = rw.id
             LEFT JOIN users ru ON rw.user_id = ru.id
             WHERE ${whereClause}
             ORDER BY t.${safeSortBy} ${safeSortOrder}
@@ -545,12 +405,10 @@ const getTransactionHistory = async (req, res) => {
 
 module.exports = {
     searchUser,
-    transferMoney,
     getRecentTransactions,
     requestMoney,
     getPendingRequests,
     processRequest,
-    withdrawMoney,
     processQRPayment,
     getTransactionHistory
 };

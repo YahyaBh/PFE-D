@@ -3,6 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 const { logAudit } = require('../lib/auditLogger');
 const ledgerService = require('../services/ledgerService');
+const feeService = require('../services/feeService');
+const exchangeService = require('../services/exchangeService');
 
 const generateCardNumber = () => {
     // Generate a random 16-digit card number (starting with 4 for Visa simulation)
@@ -43,21 +45,12 @@ const issueCard = async (req, res) => {
             }
         }
 
-        // DB ALIGNMENT SELF-HEALING
-        try {
-            await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS user_id VARCHAR(36)");
-            await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS wallet_id VARCHAR(36)");
-            await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS card_number VARCHAR(20)");
-            await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS card_holder VARCHAR(100)");
-            await db.query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS balance DECIMAL(12,2) DEFAULT 0.00");
-        } catch(e) {}
-
-        // 2. Fetch user's primary wallet ID
-        const [wallets] = await db.query('SELECT id FROM wallets WHERE user_id = ? LIMIT 1', [userId]);
-        const walletId = wallets[0]?.id;
+        // 2. Fetch user's MAD wallet account
+        const [walletAccounts] = await db.query('SELECT id FROM wallet_accounts WHERE user_id = ? AND currency = "MAD" LIMIT 1', [userId]);
+        const walletId = walletAccounts[0]?.id;
 
         if (!walletId) {
-            return res.status(404).json({ error: 'Wallet not found for card issuance.' });
+            return res.status(404).json({ error: 'MAD wallet not found for card issuance.' });
         }
 
         const cardId = uuidv4();
@@ -141,7 +134,6 @@ const toggleCardStatus = async (req, res) => {
             [status, cardId]
         );
 
-        // TRIGGER NOTIFICATION
         await notificationController.createNotification(
             userId,
             'SECURITY',
@@ -149,7 +141,7 @@ const toggleCardStatus = async (req, res) => {
             `Your virtual card has been marked as ${status.toLowerCase()}.`
         );
 
-        await logAudit(req, status === 'ACTIVE' ? 'CARD_UNFROZEN' : 'CARD_FROZEN', 'card', null, { cardId }, userId);
+        await logAudit(req, status === 'ACTIVE' ? 'CARD_UNFROZEN' : 'CARD_FROZEN', 'card', { cardId }, { status }, userId);
 
         res.json({ message: `Card ${status.toLowerCase()} successfully` });
     } catch (err) {
@@ -175,6 +167,8 @@ const deleteCard = async (req, res) => {
 
         await db.query('DELETE FROM cards WHERE id = ?', [cardId]);
 
+        await logAudit(req, 'CARD_DELETED', 'card', { cardId }, null, userId);
+
         res.json({ message: 'Card deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -197,6 +191,14 @@ const regenerateCard = async (req, res) => {
             return res.status(404).json({ error: 'Card not found' });
         }
 
+        const [regens] = await db.query(
+            'SELECT COUNT(*) as count FROM audit_logs WHERE user_id = ? AND action = ? AND created_at >= DATE_FORMAT(CURDATE(), "%Y-%m-01")',
+            [userId, 'CARD_REGENERATED']
+        );
+        if (regens[0].count >= 5) {
+            return res.status(429).json({ error: 'Card regeneration limit reached. Maximum 5 regenerations per month.' });
+        }
+
         const cardHolder = cards[0].card_holder;
         const newCardNumber = generateCardNumber();
         const newCVV = generateCVV();
@@ -206,13 +208,14 @@ const regenerateCard = async (req, res) => {
             [newCardNumber, newCVV, cardId]
         );
 
-        // TRIGGER NOTIFICATION
         await notificationController.createNotification(
             userId,
             'SECURITY',
             'Card Details Refreshed',
             `Your details for "${cardHolder}" have been regenerated successfully.`
         );
+
+        await logAudit(req, 'CARD_REGENERATED', 'card', { cardId }, { newCardNumber: 'REDACTED' }, userId);
 
         res.json({
             message: 'Card details regenerated successfully',
@@ -229,7 +232,7 @@ const refillCard = async (req, res) => {
     const connection = await db.getConnection();
     try {
         const userId = req.user.id;
-        const { cardId, amount } = req.body;
+        const { cardId, amount, sourceWalletId } = req.body;
         const amountNum = parseFloat(amount);
 
         if (isNaN(amountNum) || amountNum <= 0) {
@@ -238,44 +241,77 @@ const refillCard = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // 1. Get card and primary wallet
+        // 1. Get card
         const [cards] = await connection.query('SELECT * FROM cards WHERE id = ? AND user_id = ?', [cardId, userId]);
         if (cards.length === 0) {
             await connection.rollback();
             return res.status(404).json({ error: 'Card not found' });
         }
 
-        const [wallets] = await connection.query('SELECT * FROM wallets WHERE user_id = ? AND currency = "MAD" LIMIT 1', [userId]);
-        const wallet = wallets[0];
+        // Cards are always MAD
+        // Determine source wallet: if sourceWalletId provided, use it; otherwise use MAD wallet
+        let sourceWallet;
+        let madAmount = amountNum;
+        let conversionNote = '';
 
-        if (!wallet) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Primary wallet (MAD) not found' });
+        if (sourceWalletId) {
+            // Specific source wallet (could be EUR/USD)
+            const [wallets] = await connection.query(
+                'SELECT * FROM wallet_accounts WHERE id = ? AND user_id = ?',
+                [sourceWalletId, userId]
+            );
+            sourceWallet = wallets[0];
+            if (!sourceWallet) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'Source wallet not found' });
+            }
+            if (parseFloat(sourceWallet.balance) < amountNum) {
+                await connection.rollback();
+                return res.status(400).json({ error: `Insufficient ${sourceWallet.currency} balance` });
+            }
+            // If source is not MAD, convert to MAD with 1.5% fee
+            if (sourceWallet.currency !== 'MAD') {
+                const rate = await exchangeService.getRate(sourceWallet.currency, 'MAD');
+                const rawMadAmount = amountNum * rate;
+                const feePercent = feeService.getFeePercent('CONVERSION_TO_MAD');
+                const feeAmount = (rawMadAmount * feePercent) / 100;
+                madAmount = rawMadAmount - feeAmount;
+                conversionNote = ` (converted from ${amountNum} ${sourceWallet.currency} at rate ${rate.toFixed(6)}, fee ${feePercent}%)`;
+            }
+        } else {
+            // Default: use MAD wallet
+            const [walletAccounts] = await connection.query(
+                'SELECT * FROM wallet_accounts WHERE user_id = ? AND currency = "MAD" LIMIT 1',
+                [userId]
+            );
+            sourceWallet = walletAccounts[0];
+            if (!sourceWallet) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'MAD wallet not found' });
+            }
+            if (parseFloat(sourceWallet.balance) < madAmount) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Insufficient wallet balance' });
+            }
         }
 
-        if (parseFloat(wallet.balance) < amountNum) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Insufficient wallet balance' });
-        }
-
-        // 2. Perform transfer
-        await connection.query('UPDATE wallets SET balance = balance - ? WHERE id = ?', [amountNum, wallet.id]);
-        await connection.query('UPDATE cards SET balance = balance + ? WHERE id = ?', [amountNum, cardId]);
+        // 2. Perform transfer: debit source, credit card
+        await connection.query('UPDATE wallet_accounts SET balance = balance - ? WHERE id = ?', [amountNum, sourceWallet.id]);
+        await connection.query('UPDATE cards SET balance = balance + ? WHERE id = ?', [madAmount, cardId]);
 
         // 3. Log transaction
         const txId = uuidv4();
         await connection.query(
             'INSERT INTO transactions (id, sender_wallet_id, receiver_wallet_id, amount, currency, type, status, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [txId, wallet.id, null, amountNum, 'MAD', 'CARD_REFILL', 'COMPLETED', `Refill for card ${cards[0].card_number.slice(-4)}`]
+            [txId, sourceWallet.id, null, madAmount, 'MAD', 'CARD_REFILL', 'COMPLETED',
+             `Refill for card ${cards[0].card_number.slice(-4)}${conversionNote}`]
         );
 
-        // LEDGER: Debit Wallet (-), Credit Card Ledger (+)
-        // We use cardId as the ledger account ID for the card
+        // LEDGER
         await ledgerService.getOrCreateWalletAccount(connection, cardId, userId, `Virtual Card ${cards[0].card_number.slice(-4)}`);
-        
         await ledgerService.recordTransaction(connection, txId, [
-            { accountId: wallet.id, amount: -amountNum, description: `Card Refill Out` },
-            { accountId: cardId, amount: amountNum, description: `Card Refill In` }
+            { accountId: sourceWallet.id, amount: -amountNum, description: `Card Refill Out${conversionNote}` },
+            { accountId: cardId, amount: madAmount, description: 'Card Refill In' }
         ]);
 
         // 4. Notification
@@ -283,13 +319,13 @@ const refillCard = async (req, res) => {
             userId,
             'TRANSACTION',
             'Card Refilled',
-            `Successfully transferred ${amountNum} MAD from your wallet to virtual card ending in ${cards[0].card_number.slice(-4)}.`
+            `Successfully transferred ${madAmount.toFixed(2)} MAD to virtual card ending in ${cards[0].card_number.slice(-4)}.${conversionNote}`
         );
 
         await connection.commit();
-        await logAudit(req, 'CARD_REFILL', 'card', null, { cardId, amount: amountNum }, userId);
+        await logAudit(req, 'CARD_REFILL', 'card', null, { cardId, amount: madAmount, sourceCurrency: sourceWallet.currency }, userId);
 
-        res.json({ message: 'Card refilled successfully', newBalance: parseFloat(cards[0].balance) + amountNum });
+        res.json({ message: 'Card refilled successfully', newBalance: parseFloat(cards[0].balance) + madAmount });
 
     } catch (err) {
         await connection.rollback();

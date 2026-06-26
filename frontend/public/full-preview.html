@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marjane Wallet — Full Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:auto;overflow-x:hidden}
+body{font-family:'Space Grotesk',sans-serif;background:#080C17;color:#fff;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(255,215,0,.2);color:#fff}
+:root{
+  --gold:#FFD700;
+  --blue:#0066FF;
+  --bg:#080C17;
+  --glass:rgba(255,255,255,.03);
+  --glass-border:rgba(255,255,255,.08);
+  --glass-blur:blur(20px);
+  --text-body:#94A3B8;
+  --text-dim:#64748B;
+}
+/* ===== CURSOR SPOTLIGHT ===== */
+#cursor-spot{position:fixed;top:0;left:0;width:500px;height:500px;pointer-events:none;z-index:9999;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.04),transparent 65%);transform:translate(-50%,-50%);opacity:0;transition:opacity 1s;will-change:transform}
+#cursor-spot.visible{opacity:1}
+
+/* ===== DUST PARTICLES ===== */
+.dust-particle{position:fixed;width:1px;height:1px;background:rgba(255,255,255,.12);border-radius:50%;pointer-events:none;z-index:0;will-change:transform}
+
+/* ===== GLASS ===== */
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}
+
+/* ===== SECTION DIVIDER ===== */
+.section-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.03),transparent);margin:0}
+
+/* ===== NAV ===== */
+nav{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:1000;width:calc(100% - 48px);max-width:1200px;padding:0 28px;height:72px;display:flex;align-items:center;justify-content:space-between;background:rgba(8,12,23,.5);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:100px;box-shadow:0 25px 50px -12px rgba(0,0,0,.7);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+nav .logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:#fff;text-decoration:none;display:flex;align-items:center;gap:8px}
+nav .logo span{color:var(--gold);font-weight:400;font-style:italic}
+nav .nav-links{display:flex;align-items:center;gap:32px}
+nav .nav-links a{font-size:13px;font-weight:500;color:rgba(255,255,255,.5);text-decoration:none;position:relative;padding:4px 0;transition:color .3s}
+nav .nav-links a::after{content:'';position:absolute;bottom:-2px;left:50%;width:4px;height:4px;border-radius:50%;background:var(--gold);transform:translateX(-50%) scale(0);transition:transform .3s}
+nav .nav-links a:hover{color:#fff}
+nav .nav-links a:hover::after{transform:translateX(-50%) scale(1)}
+nav .nav-actions{display:flex;align-items:center;gap:12px}
+nav .nav-actions .sign-in{padding:10px 24px;border:1px solid rgba(255,255,255,.2);border-radius:100px;font-size:13px;font-weight:500;color:rgba(255,255,255,.7);text-decoration:none;transition:all .3s}
+nav .nav-actions .sign-in:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.4)}
+nav .nav-actions .open-wallet{position:relative;overflow:hidden;padding:10px 28px;border:none;border-radius:100px;font-size:13px;font-weight:600;color:#080C17;background:linear-gradient(135deg,var(--gold),#FFE135);text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:box-shadow .3s,transform .15s;will-change:transform}
+nav .nav-actions .open-wallet:hover{box-shadow:0 0 30px rgba(255,215,0,.2)}
+nav .nav-actions .open-wallet .arrow{display:inline-block;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+nav .nav-actions .open-wallet:hover .arrow{transform:translateX(4px)}
+
+/* ===== HERO ===== */
+#hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;padding:120px 24px 60px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:100px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.15);font-size:12px;font-weight:500;color:rgba(255,215,0,.8);letter-spacing:.5px;text-transform:uppercase;margin-bottom:32px;opacity:0;transform:translateY(20px)}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dot-pulse 2s ease-in-out infinite}
+@keyframes dot-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+#hero h1{font-size:clamp(44px,8vw,96px);line-height:1;letter-spacing:-.02em;margin-bottom:24px;position:relative}
+#hero h1 .word-wrap{display:block;overflow:hidden}
+#hero h1 .word{display:block;transform:translateY(100%);opacity:0}
+#hero h1 .gold{color:var(--gold);font-weight:300;text-shadow:0 0 60px rgba(255,215,0,.12);animation:gold-breathe 4s ease-in-out infinite}
+#hero h1 .white{color:#fff;font-weight:700}
+@keyframes gold-breathe{0%,100%{text-shadow:0 0 40px rgba(255,215,0,.1)}50%{text-shadow:0 0 80px rgba(255,215,0,.2)}}
+.hero-underline{height:1px;background:var(--gold);width:0;margin-bottom:32px;border-radius:2px}
+#hero .sub{font-size:18px;line-height:1.6;color:var(--text-body);max-width:520px;margin-bottom:40px;opacity:0;transform:translateY(20px)}
+.hero-ctas{display:flex;gap:16px;flex-wrap:wrap;opacity:0;transform:translateY(20px)}
+.hero-ctas .btn-gold{position:relative;overflow:hidden;padding:14px 36px;border:none;border-radius:100px;font-size:15px;font-weight:600;color:#080C17;background:linear-gradient(135deg,var(--gold),#FFE135);text-decoration:none;display:inline-flex;align-items:center;gap:10px;transition:box-shadow .3s,transform .15s;will-change:transform}
+.hero-ctas .btn-gold .sweep{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,225,53,.35),transparent);transform:translateX(-100%);transition:transform .4s ease}
+.hero-ctas .btn-gold:hover .sweep{transform:translateX(100%)}
+.hero-ctas .btn-gold:hover{box-shadow:0 0 40px rgba(255,215,0,.25)}
+.hero-ctas .btn-gold .arr{display:inline-block;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.hero-ctas .btn-gold:hover .arr{transform:translateX(4px)}
+.hero-ctas .btn-ghost{position:relative;padding:14px 36px;border:1px solid rgba(255,255,255,.15);border-radius:100px;font-size:15px;font-weight:500;color:rgba(255,255,255,.7);text-decoration:none;display:inline-flex;align-items:center;gap:10px;transition:all .35s}
+.hero-ctas .btn-ghost:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.4);color:#fff}
+.hero-ctas .btn-ghost svg line,.hero-ctas .btn-ghost svg path{transition:stroke-dashoffset .5s}
+.hero-ctas .btn-ghost:hover svg line,.hero-ctas .btn-ghost:hover svg path{stroke-dashoffset:0}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;max-width:1200px;margin:0 auto;width:100%}
+.hero-visual{display:flex;justify-content:center;align-items:center;perspective:1200px;position:relative}
+.card-wrap{animation:card-float 5s ease-in-out infinite;transform-style:preserve-3d}
+@keyframes card-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.card{width:420px;height:252px;border-radius:24px;position:relative;transform-style:preserve-3d;cursor:pointer;will-change:transform;transition:transform .08s linear;overflow:hidden}
+.card-bg{position:absolute;inset:0;border-radius:24px;background:#1a1f2e;box-shadow:0 24px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);transform-style:preserve-3d}
+.card-gradient{position:absolute;inset:0;border-radius:24px;pointer-events:none;opacity:.5;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(0,102,255,.25))}
+.card-sheen{position:absolute;inset:0;border-radius:24px;pointer-events:none;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.12) 45%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.12) 55%,transparent 75%);background-size:200% 100%;animation:sheen-sweep 4s ease-in-out infinite;opacity:0;mix-blend-mode:overlay}
+@keyframes sheen-sweep{0%{background-position:200% 0;opacity:0}4%{opacity:.7}20%{background-position:-100% 0;opacity:.7}24%{opacity:0}100%{background-position:-100% 0;opacity:0}}
+.card-sheen-cursor{position:absolute;inset:0;border-radius:24px;pointer-events:none;background:radial-gradient(circle at var(--sx,50%) var(--sy,50%),rgba(255,255,255,.1),transparent 60%);opacity:0;transition:opacity .3s;mix-blend-mode:overlay}
+.card-content{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between;height:100%;padding:28px;transform:translateZ(24px)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;transform:translateZ(16px)}
+.card-top .brand{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4)}
+.card-top .brand span{display:block;font-size:13px;font-weight:600;color:#fff;letter-spacing:-.2px;margin-top:2px}
+.card-chip{width:42px;height:30px;border-radius:6px;overflow:hidden;background:linear-gradient(135deg,var(--gold),#ccb100);position:relative}
+.card-chip::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:chip-glare 2.5s ease-in-out infinite}
+@keyframes chip-glare{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+.card-balance{transform:translateZ(20px);margin:12px 0}
+.card-balance .label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:4px}
+.card-balance .amount{display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.card-balance .amount .odometer{display:flex;gap:0;overflow:hidden;height:44px}
+.card-balance .amount .odometer .od-digit{display:flex;flex-direction:column;align-items:center;overflow:hidden;position:relative;width:24px;height:44px}
+.card-balance .amount .odometer .od-digit .od-strip{display:flex;flex-direction:column;align-items:center;will-change:transform}
+.card-balance .amount .odometer .od-digit .od-strip span{display:flex;align-items:center;justify-content:center;height:44px;width:24px;font-size:38px;font-weight:700;letter-spacing:-1.5px;color:#fff}
+.card-balance .amount .currency{font-size:14px;font-weight:600;color:var(--gold);flex-shrink:0}
+.card-bottom{display:flex;justify-content:space-between;align-items:center;transform:translateZ(12px)}
+.card-number{display:flex;gap:2px;align-items:center}
+.card-number .d{font-size:12px;font-weight:500;color:rgba(255,255,255,.6);font-variant-numeric:tabular-nums;letter-spacing:2px;opacity:0}
+.card-number .space{width:12px;display:inline-block}
+.card-nfc{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);position:relative;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.7)}
+.card-nfc .ring{position:absolute;inset:-4px;border-radius:100px;border:1px solid rgba(0,102,255,.25);animation:nfc-pulse 2.4s ease-out infinite}
+.card-nfc .ring:nth-child(2){animation-delay:.8s}
+.card-nfc .ring:nth-child(3){animation-delay:1.6s}
+@keyframes nfc-pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.6);opacity:0}}
+.nfc-icon{width:16px;height:16px;color:rgba(255,255,255,.7)}
+
+/* Activity Peek */
+.activity-peek{position:absolute;bottom:-8px;right:-20px;z-index:3;pointer-events:none;opacity:0;transform:translateX(24px);transition:opacity .5s,transform .5s cubic-bezier(.34,1.56,.64,1)}
+.hero-visual:hover .activity-peek{opacity:1;transform:translateX(0)}
+.activity-peek-inner{display:flex;flex-direction:column;gap:6px;width:220px}
+.activity-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.06);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.activity-item .av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.activity-item .info{flex:1;min-width:0}
+.activity-item .info .title{font-size:10px;font-weight:600;letter-spacing:-.1px}
+.activity-item .info .sub{font-size:8px;color:rgba(255,255,255,.45)}
+.activity-item .amt{font-size:11px;font-weight:700;letter-spacing:-.2px}
+
+/* Stats Bar in Hero */
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1200px;margin:48px auto 0;width:100%;padding:0 24px}
+.hero-stat{padding:16px 20px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(16px);box-shadow:0 4px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.03);display:flex;align-items:center;gap:12px;opacity:0;transform:translateY(30px)}
+.hero-stat-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-stat-content .hero-stat-label{font-size:9px;font-weight:500;color:rgba(255,255,255,.45);letter-spacing:-.1px;margin-bottom:2px}
+.hero-stat-content .hero-stat-num{font-size:20px;font-weight:700;letter-spacing:-.4px;line-height:1.2;font-variant-numeric:tabular-nums}
+
+/* Scroll Indicator */
+.scroll-indicator{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.35);font-size:9px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;opacity:.35;animation:fade-scroll 4s ease-in-out infinite}
+.scroll-indicator .mouse{width:18px;height:28px;border-radius:9px;display:flex;justify-content:center;padding-top:5px;border:1.5px solid rgba(255,255,255,.15)}
+.scroll-indicator .mouse .wheel{width:2px;height:5px;border-radius:2px;background:rgba(255,255,255,.3);animation:scroll-wheel 2.2s ease-in-out infinite}
+@keyframes fade-scroll{0%,100%{opacity:.25}50%{opacity:.5}}
+@keyframes scroll-wheel{0%{transform:translateY(0);opacity:1}100%{transform:translateY(7px);opacity:0}}
+
+/* ===== TRUST BAR ===== */
+#trust{width:100%;height:80px;display:flex;align-items:center;justify-content:center;gap:48px;padding:0 24px;border-top:1px solid;border-bottom:1px solid;border-image:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent) 1}
+.trust-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:rgba(255,255,255,.4);transition:all .4s;opacity:0;transform:translateY(10px);position:relative;cursor:default}
+.trust-logo:hover{color:rgba(255,255,255,.9);opacity:1;transform:scale(1.05);filter:brightness(1.1)}
+
+/* ===== FEATURES SHOWCASE ===== */
+#showcase{padding:120px 24px;max-width:1200px;margin:0 auto;width:100%}
+#showcase h2{font-size:clamp(32px,5vw,64px);letter-spacing:-.02em;line-height:1;margin-bottom:48px}
+#showcase h2 .gold{color:var(--gold);font-weight:300}
+.showcase-grid{display:grid;grid-template-columns:3fr 2fr;gap:16px}
+.showcase-main{grid-row:span 2;border-radius:32px;padding:40px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5);position:relative;overflow:hidden}
+.showcase-main .glow{position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(0,102,255,.08);filter:blur(60px);pointer-events:none}
+.showcase-main h3{font-size:24px;font-weight:600;margin-bottom:24px;letter-spacing:-.3px}
+.chart-svg{width:100%;height:80px;margin-bottom:24px}
+.chart-svg polyline{fill:none;stroke:var(--gold);stroke-width:2;stroke-linearray:1000;stroke-dashoffset:1000}
+.transaction-list{display:flex;flex-direction:column;gap:8px}
+.tx-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.04);opacity:0;transform:translateX(20px)}
+.tx-item .tx-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.tx-item .tx-info{flex:1}
+.tx-item .tx-info .tx-name{font-size:12px;font-weight:500}
+.tx-item .tx-info .tx-date{font-size:10px;color:var(--text-dim)}
+.tx-item .tx-amt{font-size:13px;font-weight:600;letter-spacing:-.2px}
+.showcase-side{display:flex;flex-direction:column;gap:16px}
+.showcase-card{border-radius:32px;padding:32px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5);position:relative;overflow:hidden;flex:1}
+.showcase-card h4{font-size:16px;font-weight:600;margin-bottom:12px;letter-spacing:-.2px}
+.showcase-card p{font-size:13px;color:var(--text-body);line-height:1.6}
+.nfc-waves{display:flex;align-items:center;justify-content:center;height:60px;margin-bottom:16px;position:relative}
+.nfc-wave{position:absolute;width:40px;height:40px;border:2px solid var(--gold);border-radius:50%;opacity:0;animation:wave-ring 2.4s ease-out infinite}
+.nfc-wave:nth-child(2){animation-delay:.8s}
+.nfc-wave:nth-child(3){animation-delay:1.6s}
+@keyframes wave-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.5);opacity:0}}
+.coin-spin{display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;animation:coin-rotate 8s linear infinite}
+@keyframes coin-rotate{to{transform:rotateY(360deg)}}
+.p2p-arrow{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px;font-size:14px;color:var(--text-body)}
+.p2p-arrow .arr-loop{animation:arrow-loop 2s ease-in-out infinite}
+@keyframes arrow-loop{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(12px);opacity:1}}
+.step-list{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.step-item{display:flex;align-items:center;gap:14px;opacity:.4;transition:opacity .5s}
+.step-item.active{opacity:1}
+.step-num{width:32px;height:32px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--gold);flex-shrink:0;transition:all .5s}
+.step-item.active .step-num{background:var(--gold);color:#080C17;box-shadow:0 0 24px rgba(255,215,0,.25)}
+.step-text{font-size:13px;color:var(--text-body);line-height:1.5}
+.step-item.active .step-text{color:#fff}
+
+/* ===== FEATURE GRID ===== */
+#features{padding:120px 24px;max-width:1200px;margin:0 auto;width:100%}
+#features h2{font-size:clamp(32px,5vw,64px);letter-spacing:-.02em;line-height:1;margin-bottom:12px;text-align:center}
+#features h2 .gold{color:var(--gold);font-weight:300}
+#features .subtitle{text-align:center;font-size:16px;color:var(--text-body);margin-bottom:48px}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.feature-card{border-radius:24px;padding:32px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5);transition:all .4s;opacity:0;transform:rotateX(15deg)}
+.feature-card:hover{transform:translateY(-8px) rotateX(0deg);border-color:rgba(255,255,255,.2)}
+.feature-card:hover .feature-desc{color:#fff}
+.feature-icon{width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:20px;transition:all .4s}
+.feature-card:hover .feature-icon{background:rgba(255,215,0,.12)}
+.feature-card h4{font-size:15px;font-weight:600;margin-bottom:8px;letter-spacing:-.2px}
+.feature-card .feature-desc{font-size:13px;color:var(--text-body);line-height:1.6;transition:color .3s}
+.icon-micro{transition:transform .4s}
+.feature-card:hover .icon-micro.flip{transform:rotateY(180deg)}
+.feature-card:hover .icon-micro.cross .a1{transform:translateX(4px)}
+.feature-card:hover .icon-micro.cross .a2{transform:translateX(-4px)}
+.feature-card:hover .icon-micro.scan-line{transform:translateY(4px)}
+.feature-card:hover .icon-micro.wave{animation:wave-burst .6s ease-out}
+@keyframes wave-burst{0%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.5}100%{transform:scale(1);opacity:1}}
+.feature-card:hover .icon-micro.star-pop{animation:star-pop .5s ease}
+@keyframes star-pop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+.feature-card:hover .icon-micro.globe-spin-h{animation:globe-spin-h .6s ease}
+@keyframes globe-spin-h{to{transform:rotateY(90deg)}}
+
+/* ===== ONBOARDING ===== */
+#onboarding{padding:120px 24px;max-width:1200px;margin:0 auto;width:100%}
+.onboarding-inner{display:grid;grid-template-columns:2fr 3fr;gap:60px;align-items:center}
+.onboarding-left h2{font-size:clamp(32px,5vw,64px);letter-spacing:-.02em;line-height:1;margin-bottom:16px}
+.onboarding-left h2 .gold{color:var(--gold);font-weight:300}
+.onboarding-left p{font-size:16px;color:var(--text-body);line-height:1.6;margin-bottom:32px;max-width:400px}
+.onboarding-left .btn-gold{position:relative;overflow:hidden;padding:14px 36px;border:none;border-radius:100px;font-size:15px;font-weight:600;color:#080C17;background:linear-gradient(135deg,var(--gold),#FFE135);text-decoration:none;display:inline-flex;align-items:center;gap:10px;transition:box-shadow .3s,transform .15s;margin-bottom:16px}
+.onboarding-left .btn-gold:hover{box-shadow:0 0 40px rgba(255,215,0,.2)}
+.onboarding-left .watch-demo{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text-body);text-decoration:none;transition:color .3s}
+.onboarding-left .watch-demo:hover{color:#fff}
+.onboarding-left .watch-demo .play-icon{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);animation:play-pulse 3s ease-in-out infinite}
+@keyframes play-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,.15)}50%{box-shadow:0 0 16px 4px rgba(255,215,0,.05)}}
+.timeline{position:relative;padding-left:40px}
+.timeline::before{content:'';position:absolute;left:15px;top:0;bottom:0;width:2px;background:rgba(255,215,0,.15);border-radius:2px}
+.timeline .line-fill{position:absolute;left:15px;top:0;width:2px;height:0;background:var(--gold);border-radius:2px;z-index:1}
+.timeline-step{position:relative;padding-bottom:40px;opacity:.3;transition:opacity .5s}
+.timeline-step.active{opacity:1}
+.timeline-step:last-child{padding-bottom:0}
+.timeline-step .tl-num{position:absolute;left:-33px;top:0;width:32px;height:32px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--gold);background:#080C17;z-index:2;transition:all .5s}
+.timeline-step.active .tl-num{background:var(--gold);color:#080C17;box-shadow:0 0 24px rgba(255,215,0,.25);transform:scale(1.15)}
+.timeline-step .tl-content{background:var(--glass);border:1px solid var(--glass-border);border-radius:20px;padding:20px 24px;backdrop-filter:var(--glass-blur);transition:all .4s}
+.timeline-step.active .tl-content{border-color:rgba(255,215,0,.2)}
+.timeline-step .tl-content h4{font-size:15px;font-weight:600;margin-bottom:6px}
+.timeline-step .tl-content p{font-size:13px;color:var(--text-body);line-height:1.5}
+
+/* ===== SECURITY ===== */
+#security{padding:120px 24px;background:#050811;position:relative;overflow:hidden}
+#security::before{content:'';position:absolute;top:-120px;right:-80px;width:400px;height:400px;border-radius:50%;background:rgba(0,102,255,.05);filter:blur(100px);pointer-events:none}
+.security-inner{max-width:1200px;margin:0 auto;width:100%}
+.security-header{display:flex;align-items:flex-start;gap:24px;margin-bottom:48px}
+.security-header h2{font-size:clamp(36px,5vw,72px);letter-spacing:-.02em;line-height:1}
+.security-header h2 .white{color:#fff;font-weight:800;display:block}
+.security-header h2 .gold{color:var(--gold);font-weight:300;display:block}
+.lock-icon{font-size:48px;margin-top:8px;display:inline-block;transition:transform .5s cubic-bezier(.34,1.56,.64,1);transform-origin:center}
+.lock-icon.click{transform:rotate(-15deg)}
+.security-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:40px}
+.security-card{border-radius:24px;padding:32px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5);border-top:3px solid;transition:all .4s;text-align:center}
+.security-card:hover{transform:scale(1.02)}
+.security-card.blue{border-top-color:var(--blue)}
+.security-card.blue:hover{box-shadow:0 0 40px rgba(0,102,255,.1),0 25px 50px -12px rgba(0,0,0,.5)}
+.security-card.green{border-top-color:#10B981}
+.security-card.green:hover{box-shadow:0 0 40px rgba(16,185,129,.1),0 25px 50px -12px rgba(0,0,0,.5)}
+.security-card.purple{border-top-color:#8B5CF6}
+.security-card.purple:hover{box-shadow:0 0 40px rgba(139,92,246,.1),0 25px 50px -12px rgba(0,0,0,.5)}
+.security-card.gold{border-top-color:var(--gold)}
+.security-card.gold:hover{box-shadow:0 0 40px rgba(255,215,0,.1),0 25px 50px -12px rgba(0,0,0,.5)}
+.security-card .sec-icon{width:48px;height:48px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.security-card h4{font-size:15px;font-weight:600;margin-bottom:8px}
+.security-card p{font-size:13px;color:var(--text-body);line-height:1.5}
+.compliance-badges{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.compliance-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:100px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:11px;font-weight:500;color:var(--text-dim);text-decoration:none;transition:all .3s}
+.compliance-badge:hover{background:rgba(255,255,255,.08);color:#fff}
+.compliance-badge:hover .badge-icon{transform:rotate(360deg)}
+.compliance-badge .badge-icon{width:14px;height:14px;display:inline-block;transition:transform .6s}
+
+/* ===== STATS ===== */
+#stats-bar{padding:80px 24px;max-width:1200px;margin:0 auto;width:100%}
+.stats-container{display:flex;align-items:center;justify-content:center;gap:0;padding:40px 48px;border-radius:32px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(24px)}
+.stat-item{flex:1;text-align:center;position:relative;padding:0 24px;opacity:0;transform:translateY(20px)}
+.stat-item:not(:last-child)::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:60%;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.08),transparent)}
+.stat-item .stat-val{font-size:clamp(32px,4vw,64px);font-weight:700;line-height:1;letter-spacing:-.03em;margin-bottom:8px}
+.stat-item .stat-val.gold{color:var(--gold)}
+.stat-item .stat-val.white{color:#fff}
+.stat-item .stat-label{font-size:12px;font-weight:500;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em}
+
+/* ===== TESTIMONIALS ===== */
+#testimonials{padding:120px 24px;max-width:1200px;margin:0 auto;width:100%}
+#testimonials h2{font-size:clamp(28px,4vw,48px);letter-spacing:-.02em;line-height:1;margin-bottom:48px}
+#testimonials h2 .gold{color:var(--gold);font-weight:300}
+.test-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.test-card{border-radius:28px;padding:36px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);box-shadow:0 25px 50px -12px rgba(0,0,0,.5);position:relative;overflow:hidden;transition:all .4s;opacity:0;transform:translateY(40px)}
+.test-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.15)}
+.test-card:hover .test-quote{color:#fff}
+.test-card::before{content:'"';position:absolute;top:12px;right:24px;font-size:80px;color:rgba(255,255,255,.03);font-weight:700;line-height:1;pointer-events:none;transition:opacity .3s}
+.test-card:hover::before{opacity:.06}
+.test-stars{display:flex;gap:4px;margin-bottom:16px}
+.test-stars .star{opacity:0;transform:scale(0)}
+.test-quote{font-size:18px;font-weight:300;font-style:italic;color:rgba(255,255,255,.9);line-height:1.6;margin-bottom:24px;transition:color .3s}
+.test-author{display:flex;align-items:center;gap:12px;border-top:1px solid rgba(255,255,255,.06);padding-top:16px}
+.test-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;position:relative;flex-shrink:0}
+.test-avatar svg{position:absolute;inset:-3px;width:46px;height:46px;transform:rotate(-90deg)}
+.test-avatar svg circle{fill:none;stroke:var(--gold);stroke-width:2;stroke-dasharray:126;stroke-dashoffset:126}
+.test-author-info .test-name{font-size:13px;font-weight:600}
+.test-author-info .test-role{font-size:11px;color:var(--text-dim)}
+
+/* ===== CTA ===== */
+#cta{padding:120px 24px;max-width:1200px;margin:0 auto;width:100%}
+.cta-container{position:relative;border-radius:48px;padding:80px;overflow:hidden;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(24px);text-align:center}
+.cta-mesh{position:absolute;inset:0;pointer-events:none;z-index:0}
+.cta-mesh .orb{position:absolute;border-radius:50%;filter:blur(80px);animation:morph 8s ease-in-out infinite alternate}
+.cta-mesh .orb.blue{width:300px;height:300px;background:rgba(0,102,255,.08);top:-60px;left:-60px}
+.cta-mesh .orb.gold{width:250px;height:250px;background:rgba(255,215,0,.06);bottom:-40px;right:-40px;animation-delay:4s}
+@keyframes morph{0%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.1)}66%{transform:translate(-20px,20px) scale(.95)}100%{transform:translate(30px,40px) scale(1.05)}}
+.cta-content{position:relative;z-index:1}
+.cta-content h2{font-size:clamp(36px,5vw,72px);letter-spacing:-.02em;line-height:1;margin-bottom:16px}
+.cta-content h2 .gold{color:var(--gold);font-weight:300;position:relative;display:inline-block}
+.cta-content h2 .gold::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,215,0,.15),transparent);background-size:200% 100%;animation:shimmer 5s ease-in-out infinite;pointer-events:none}
+@keyframes shimmer{0%{background-position:200% 0}20%{background-position:-100% 0}100%{background-position:-100% 0}}
+.cta-content p{font-size:16px;color:var(--text-body);margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.cta-btns .btn-gold{position:relative;overflow:hidden;padding:16px 40px;border:none;border-radius:100px;font-size:15px;font-weight:600;color:#080C17;background:linear-gradient(135deg,var(--gold),#FFE135);text-decoration:none;display:inline-flex;align-items:center;gap:10px;transition:box-shadow .3s,transform .15s;will-change:transform}
+.cta-btns .btn-gold:hover{box-shadow:0 0 40px rgba(255,215,0,.25)}
+.cta-btns .btn-gold .arr{display:inline-block;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.cta-btns .btn-gold:hover .arr{transform:translateX(4px)}
+.cta-btns .btn-ghost{padding:16px 40px;border:1px solid rgba(255,255,255,.2);border-radius:100px;font-size:15px;font-weight:500;color:rgba(255,255,255,.7);text-decoration:none;transition:all .3s}
+.cta-btns .btn-ghost:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.4);color:#fff}
+
+/* ===== FOOTER ===== */
+footer{padding:80px 24px 32px;max-width:1200px;margin:0 auto;width:100%}
+footer .top-border{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);margin-bottom:48px}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr;gap:40px;margin-bottom:48px}
+.footer-brand p{font-size:14px;color:var(--text-body);line-height:1.6;margin-top:16px;max-width:300px}
+.footer-social{display:flex;gap:12px;margin-top:20px}
+.footer-social a{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:var(--text-dim);text-decoration:none;font-size:14px;transition:all .3s}
+.footer-social a:hover{color:#fff;border-color:rgba(255,255,255,.25);transform:scale(1.1)}
+.footer-col h5{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.5);margin-bottom:20px}
+.footer-col a{display:block;font-size:14px;color:var(--text-dim);text-decoration:none;padding:4px 0;position:relative;padding-left:0;transition:all .3s}
+.footer-col a:hover{color:#fff;padding-left:12px}
+.footer-col a::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:0;background:var(--gold);border-radius:2px;transition:height .3s}
+.footer-col a:hover::before{height:12px}
+.footer-payment-logos{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.footer-payment-logos span{font-size:18px;font-weight:700;letter-spacing:-.5px;color:rgba(255,255,255,.3);filter:grayscale(1);transition:all .3s;cursor:default}
+.footer-payment-logos span:hover{color:rgba(255,255,255,.9);filter:grayscale(0)}
+.footer-currency-tags{display:flex;gap:8px;flex-wrap:wrap}
+.currency-tag{padding:6px 14px;border-radius:100px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:11px;font-weight:500;color:var(--text-dim);transition:all .3s}
+.currency-tag:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:24px;border-top:1px solid rgba(255,255,255,.05);font-size:13px;color:var(--text-dim)}
+.footer-bottom .social-links{display:flex;gap:16px}
+.footer-bottom .social-links a{color:var(--text-dim);text-decoration:none;transition:color .3s}
+.footer-bottom .social-links a:hover{color:#fff}
+
+/* ===== SECTION ENTRANCE ===== */
+.section-hidden{opacity:0;transform:translateY(40px);transition:opacity .8s ease,transform .8s cubic-bezier(.16,1,.3,1)}
+.section-visible{opacity:1;transform:translateY(0)}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  nav{transition:none}
+  .card-sheen,.card-sheen-cursor,.dust-particle{display:none}
+  .hero-stat,.test-card,.feature-card{opacity:1!important;transform:none!important}
+  .activity-peek{display:none}
+  .hero-ctas,.hero-badge,#hero .sub{opacity:1!important;transform:none!important}
+  #hero h1 .word{transform:none;opacity:1!important}
+  .hero-underline{width:100%!important}
+  .stat-item{opacity:1!important;transform:none!important}
+  .section-hidden{opacity:1;transform:none;transition:none}
+  .timeline-step,.step-item{opacity:1!important}
+  .card-wrap{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- CURSOR SPOTLIGHT -->
+<div id="cursor-spot"></div>
+
+<!-- ========== NAV ========== -->
+<nav id="nav">
+  <a href="#" class="logo">MARJANE <span>WALLET</span></a>
+  <div class="nav-links">
+    <a href="#showcase">Features</a>
+    <a href="#security">Security</a>
+    <a href="#">Developers</a>
+  </div>
+  <div class="nav-actions">
+    <a href="#" class="sign-in">Sign In</a>
+    <a href="#" class="open-wallet">Open Wallet <span class="arrow">→</span></a>
+  </div>
+</nav>
+
+<!-- ========== HERO ========== -->
+<section id="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-badge">
+        <span class="dot"></span> Next-Gen Fintech
+      </div>
+      <h1>
+        <span class="word-wrap"><span class="word white">SMART PAYMENTS</span></span>
+        <span class="word-wrap"><span class="word gold">REIMAGINED</span></span>
+      </h1>
+      <div class="hero-underline"></div>
+      <p class="sub">Experience borderless banking with instant transfers, virtual cards, and real-time loyalty rewards — all in one fluid ecosystem.</p>
+      <div class="hero-ctas">
+        <a href="#" class="btn-gold">
+          <span class="sweep"></span>
+          Get Started
+          <span class="arr">→</span>
+        </a>
+        <a href="#" class="btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12" strokeDasharray="4" strokeDashoffset="4"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Sign In
+        </a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="activity-peek">
+        <div class="activity-peek-inner">
+          <div class="activity-item">
+            <div class="av" style="background:rgba(0,200,83,.15);color:#00c853">↓</div>
+            <div class="info"><div class="title">From K. Benali</div><div class="sub">Just now</div></div>
+            <div class="amt" style="color:#00c853">+840 MAD</div>
+          </div>
+          <div class="activity-item">
+            <div class="av" style="background:rgba(255,82,82,.15);color:#ff5252">↑</div>
+            <div class="info"><div class="title">To M. Alaoui</div><div class="sub">2 min ago</div></div>
+            <div class="amt" style="color:#ff5252">-320 MAD</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-wrap">
+        <div class="card" id="hero-card">
+          <div class="card-bg">
+            <div class="card-gradient" id="card-grad"></div>
+            <div class="card-sheen"></div>
+            <div class="card-sheen-cursor" id="card-sheen-cursor"></div>
+            <div class="card-content">
+              <div class="card-top">
+                <div><div class="brand">Marjane Wallet<div>Premium</div></div></div>
+                <div class="card-chip"></div>
+              </div>
+              <div class="card-balance">
+                <div class="label">Available Balance</div>
+                <div class="amount">
+                  <div class="odometer" id="odometer"></div>
+                  <span class="currency">MAD</span>
+                </div>
+              </div>
+              <div class="card-bottom">
+                <div class="card-number" id="card-digits">
+                  <span class="d">4</span><span class="d">5</span><span class="d">6</span><span class="d">2</span>
+                  <span class="space"></span>
+                  <span class="d">8</span><span class="d">9</span><span class="d">1</span><span class="d">2</span>
+                  <span class="space"></span>
+                  <span class="d">3</span><span class="d">4</span><span class="d">7</span><span class="d">6</span>
+                  <span class="space"></span>
+                  <span class="d">0</span><span class="d">0</span><span class="d">1</span><span class="d">9</span>
+                </div>
+                <div class="card-nfc">
+                  <div class="ring"></div>
+                  <div class="ring"></div>
+                  <svg class="nfc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M7 8a5 5 0 0 1 10 0M10 11a2 2 0 0 1 4 0"/>
+                    <path d="M5 5a8 8 0 0 1 14 0M15 16l-3-3-3 3"/>
+                  </svg>
+                  Ready
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-stats" id="hero-stats">
+    <div class="hero-stat" data-num="100" data-suffix="" data-type="number">
+      <div class="hero-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0066FF" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div class="hero-stat-content">
+        <div class="hero-stat-label">Mil-Grade Security</div>
+        <div class="hero-stat-num"><span class="stat-num-inner">0</span>%</div>
+      </div>
+    </div>
+    <div class="hero-stat" data-num="99.99" data-suffix="%" data-type="terminal">
+      <div class="hero-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <div class="hero-stat-content">
+        <div class="hero-stat-label">Platform Uptime</div>
+        <div class="hero-stat-num">99.99%</div>
+      </div>
+    </div>
+    <div class="hero-stat" data-num="2400000" data-suffix="" data-type="number">
+      <div class="hero-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.5"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+      <div class="hero-stat-content">
+        <div class="hero-stat-label">NFC + QR Payments</div>
+        <div class="hero-stat-num"><span class="stat-num-inner">0</span>+</div>
+      </div>
+    </div>
+    <div class="hero-stat" data-num="250" data-suffix="K+" data-type="number">
+      <div class="hero-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg></div>
+      <div class="hero-stat-content">
+        <div class="hero-stat-label">Active Members</div>
+        <div class="hero-stat-num"><span class="stat-num-inner">0</span>K+</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-indicator">
+    <div class="mouse"><div class="wheel"></div></div>Scroll
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== TRUST BAR ========== -->
+<section id="trust">
+  <span class="trust-logo">VISA</span>
+  <span class="trust-logo">Mastercard</span>
+  <span class="trust-logo">CIH Bank</span>
+  <span class="trust-logo">CMI</span>
+  <span class="trust-logo">Marjane</span>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== FEATURES SHOWCASE ========== -->
+<section id="showcase" class="section-hidden">
+  <h2>Everything You <span class="gold">Need.</span></h2>
+  <div class="showcase-grid">
+    <div class="showcase-main">
+      <div class="glow"></div>
+      <h3>Full Wallet Control</h3>
+      <div class="chart-svg">
+        <svg viewBox="0 0 400 60" width="100%" height="100%">
+          <polyline points="0,50 40,45 80,30 120,35 160,20 200,25 240,10 280,15 320,5 360,8 400,12" id="chart-line"/>
+        </svg>
+      </div>
+      <div class="transaction-list" id="tx-list">
+        <div class="tx-item"><div class="tx-icon" style="background:rgba(0,200,83,.12);color:#00c853">↓</div><div class="tx-info"><div class="tx-name">Salary Deposit</div><div class="tx-date">Today, 09:24</div></div><div class="tx-amt" style="color:#00c853">+12,400 MAD</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:rgba(255,215,0,.12);color:var(--gold)">*</div><div class="tx-info"><div class="tx-name">Loyalty Bonus</div><div class="tx-date">Today, 08:15</div></div><div class="tx-amt" style="color:var(--gold)">+350 MAD</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:rgba(255,82,82,.12);color:#ff5252">↑</div><div class="tx-info"><div class="tx-name">Groceries - Marjane</div><div class="tx-date">Yesterday, 18:42</div></div><div class="tx-amt" style="color:#ff5252">-1,280 MAD</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:rgba(0,102,255,.12);color:var(--blue)">◉</div><div class="tx-info"><div class="tx-name">Card Top-up</div><div class="tx-date">Yesterday, 10:30</div></div><div class="tx-amt" style="color:var(--blue)">+5,000 MAD</div></div>
+      </div>
+    </div>
+    <div class="showcase-side">
+      <div class="showcase-card">
+        <div class="nfc-waves"><div class="nfc-wave"></div><div class="nfc-wave"></div><div class="nfc-wave"></div></div>
+        <h4>NFC Payments</h4>
+        <p>Tap your phone at any checkout — instant, contactless, secure. No wallet needed.</p>
+      </div>
+      <div class="showcase-card" style="border-color:rgba(255,215,0,.15)">
+        <div class="coin-spin">🪙</div>
+        <h4>Loyalty Rewards</h4>
+        <p>Every purchase earns points. 100 pts = 10 MAD credit, auto-applied to your next purchase.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== FEATURE GRID ========== -->
+<section id="features" class="section-hidden">
+  <h2>Every Feature, <span class="gold">Built In.</span></h2>
+  <p class="subtitle">No add-ons, no upgrades needed. Everything included from day one.</p>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro flip">💳</span></div>
+      <h4>Virtual Cards</h4>
+      <p class="feature-desc">Instant virtual card generation for secure online payments with custom limits.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro cross"><span class="a1" style="display:inline-block;transition:transform .3s">↔</span></span></div>
+      <h4>P2P Transfers</h4>
+      <p class="feature-desc">Send money to any Marjane member instantly — no fees, no delays.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro scan-line">📱</span></div>
+      <h4>QR Payments</h4>
+      <p class="feature-desc">Pay or collect with a QR code. Works anywhere, even offline.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro wave">📡</span></div>
+      <h4>NFC Tap-to-Pay</h4>
+      <p class="feature-desc">Tap your phone at any checkout — contactless payments in seconds.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro star-pop">⭐</span></div>
+      <h4>Loyalty Rewards</h4>
+      <p class="feature-desc">Every purchase earns points. 100 pts = 10 MAD credit, auto-applied.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><span class="icon-micro globe-spin-h">🌍</span></div>
+      <h4>Multi-Currency</h4>
+      <p class="feature-desc">Hold and transact in MAD, EUR, USD. Exchange at live rates.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== ONBOARDING ========== -->
+<section id="onboarding" class="section-hidden">
+  <div class="onboarding-inner">
+    <div class="onboarding-left">
+      <h2>Up &amp; Running <br><span class="gold">in 5 Minutes.</span></h2>
+      <p>No bank visit, no paperwork. Your wallet is ready before your next Marjane run.</p>
+      <a href="#" class="btn-gold">Start Now <span class="arr">→</span></a>
+      <a href="#" class="watch-demo">
+        <span class="play-icon">▶</span> Watch Demo
+      </a>
+    </div>
+    <div class="timeline" id="timeline">
+      <div class="line-fill" id="line-fill"></div>
+      <div class="timeline-step" data-step="0">
+        <div class="tl-num">1</div>
+        <div class="tl-content">
+          <h4>📷 Verify Your Identity</h4>
+          <p>Upload your CIN and complete a quick Face ID scan. Verified in under 2 minutes.</p>
+        </div>
+      </div>
+      <div class="timeline-step" data-step="1">
+        <div class="tl-num">2</div>
+        <div class="tl-content">
+          <h4>💰 Add Funds</h4>
+          <p>Deposit via bank transfer, in-store at Marjane, or from any debit card.</p>
+        </div>
+      </div>
+      <div class="timeline-step" data-step="2">
+        <div class="tl-num">3</div>
+        <div class="tl-content">
+          <h4>✅ Pay, Transfer &amp; Earn</h4>
+          <p>Pay via QR or NFC anywhere. Send money instantly. Earn loyalty points every purchase.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== SECURITY ========== -->
+<section id="security" class="section-hidden">
+  <div class="security-inner">
+    <div class="security-header">
+      <div>
+        <h2><span class="white">YOUR MONEY.</span><span class="gold">LOCKED TIGHT.</span></h2>
+      </div>
+      <span class="lock-icon" id="lock-icon">🔒</span>
+    </div>
+    <div class="security-grid">
+      <div class="security-card blue">
+        <div class="sec-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0066FF" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h4>256-bit SSL</h4>
+        <p>End-to-end encryption on all data and transactions.</p>
+      </div>
+      <div class="security-card green">
+        <div class="sec-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="1.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
+        <h4>Biometric Auth</h4>
+        <p>Biometric authentication for every sensitive action.</p>
+      </div>
+      <div class="security-card purple">
+        <div class="sec-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <h4>AI Fraud Detection</h4>
+        <p>Real-time ML models flagging suspicious patterns 24/7.</p>
+      </div>
+      <div class="security-card gold">
+        <div class="sec-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h4>2-Factor MFA</h4>
+        <p>Every login protected with a one-time code via SMS or authenticator.</p>
+      </div>
+    </div>
+    <div class="compliance-badges">
+      <span class="compliance-badge"><span class="badge-icon">✓</span> PCI-DSS Compliant</span>
+      <span class="compliance-badge"><span class="badge-icon">✓</span> ISO 27001</span>
+      <span class="compliance-badge"><span class="badge-icon">✓</span> MAD Regulated</span>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== STATS BAR ========== -->
+<section id="stats-bar" class="section-hidden">
+  <div class="stats-container">
+    <div class="stat-item" data-target="250" data-suffix="K+">
+      <div class="stat-val white"><span class="stat-counter" data-target="250">0</span>K+</div>
+      <div class="stat-label">Active Members</div>
+    </div>
+    <div class="stat-item" data-target="15400" data-suffix="M MAD">
+      <div class="stat-val gold"><span class="stat-counter" data-target="15400">0</span>M MAD</div>
+      <div class="stat-label">Total Processed</div>
+    </div>
+    <div class="stat-item" data-target="99.99" data-suffix="%">
+      <div class="stat-val white">99.99<span class="percent-flicker">%</span></div>
+      <div class="stat-label">Platform Uptime</div>
+    </div>
+    <div class="stat-item" data-target="49" data-suffix="/5">
+      <div class="stat-val white"><span class="stat-counter" data-target="49">0</span>/5</div>
+      <div class="stat-label">Member Rating</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== TESTIMONIALS ========== -->
+<section id="testimonials" class="section-hidden">
+  <h2>Real Members. <span class="gold">Real Results.</span></h2>
+  <div class="test-grid">
+    <div class="test-card">
+      <div class="test-stars" data-count="5">
+        <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+      </div>
+      <p class="test-quote">"I loaded my wallet at Marjane Casablanca and paid for my whole cart via NFC. Took 5 seconds. Never going back to cash."</p>
+      <div class="test-author">
+        <div class="test-avatar" style="background:rgba(255,215,0,.15);color:var(--gold)">
+          K
+          <svg><circle cx="23" cy="23" r="20"/></svg>
+        </div>
+        <div class="test-author-info">
+          <div class="test-name">Khaoula Benali</div>
+          <div class="test-role">Marjane Ain Sebaa — 1 year</div>
+        </div>
+      </div>
+    </div>
+    <div class="test-card">
+      <div class="test-stars" data-count="5">
+        <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+      </div>
+      <p class="test-quote">"The loyalty rewards are actually worth it. I earned 400 MAD credit just from my monthly shopping. Zero effort required."</p>
+      <div class="test-author">
+        <div class="test-avatar" style="background:rgba(255,215,0,.15);color:var(--gold)">
+          M
+          <svg><circle cx="23" cy="23" r="20"/></svg>
+        </div>
+        <div class="test-author-info">
+          <div class="test-name">Mehdi Alaoui</div>
+          <div class="test-role">Marjane Maârif — 8 months</div>
+        </div>
+      </div>
+    </div>
+    <div class="test-card">
+      <div class="test-stars" data-count="5">
+        <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+      </div>
+      <p class="test-quote">"Sent 2000 MAD to my sister in Fès in 2 seconds. Free. No bank required. This is the future of money in Morocco."</p>
+      <div class="test-author">
+        <div class="test-avatar" style="background:rgba(255,215,0,.15);color:var(--gold)">
+          S
+          <svg><circle cx="23" cy="23" r="20"/></svg>
+        </div>
+        <div class="test-author-info">
+          <div class="test-name">Sanae El Fassi</div>
+          <div class="test-role">Marjane Rabat — 6 months</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== CTA ========== -->
+<section id="cta" class="section-hidden">
+  <div class="cta-container">
+    <div class="cta-mesh">
+      <div class="orb blue"></div>
+      <div class="orb gold"></div>
+    </div>
+    <div class="cta-content">
+      <h2>Start Using Marjane Wallet<br><span class="gold">Today — For Free.</span></h2>
+      <p>No monthly fees. No minimum balance. Open your wallet in 5 minutes.</p>
+      <div class="cta-btns">
+        <a href="#" class="btn-gold">
+          Create Account <span class="arr">→</span>
+        </a>
+        <a href="#" class="btn-ghost">Sign In</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ========== FOOTER ========== -->
+<footer>
+  <div class="top-border"></div>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="logo" style="font-size:20px;font-weight:700;color:#fff;text-decoration:none;letter-spacing:-.5px">MARJANE <span style="color:var(--gold);font-weight:400;font-style:italic">WALLET</span></a>
+      <p>Morocco's most advanced digital wallet. Secure, instant, and built for everyday life.</p>
+      <div class="footer-social">
+        <a href="#">𝕏</a>
+        <a href="#">in</a>
+        <a href="#">ig</a>
+        <a href="#">fb</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h5>Platform</h5>
+      <a href="#">Features</a>
+      <a href="#">Pricing</a>
+      <a href="#">Security</a>
+      <a href="#">API</a>
+    </div>
+    <div class="footer-col">
+      <h5>Company</h5>
+      <a href="#">About</a>
+      <a href="#">Careers</a>
+      <a href="#">Press</a>
+      <a href="#">Blog</a>
+    </div>
+    <div class="footer-col">
+      <h5>Legal</h5>
+      <a href="#">Terms of Service</a>
+      <a href="#">Privacy Policy</a>
+      <a href="#">GDPR</a>
+      <div class="footer-payment-logos" style="margin-top:16px">
+        <span>VISA</span><span>MC</span><span>CIH</span><span>CMI</span>
+      </div>
+      <div class="footer-currency-tags">
+        <span class="currency-tag">MAD</span>
+        <span class="currency-tag">EUR</span>
+        <span class="currency-tag">USD</span>
+        <span class="currency-tag">GBP</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2026 Marjane Wallet. All rights reserved.</span>
+    <div class="social-links">
+      <a href="#">Status</a>
+      <a href="#">Support</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ===== LENIS SMOOTH SCROLL =====
+const lenis = new Lenis({lerp:.08,wheelMultiplier:1,smoothWheel:true});
+lenis.on('scroll',ScrollTrigger.update);
+gsap.ticker.add((t)=>{lenis.raf(t*1e3)});
+gsap.ticker.lagSmoothing(0);
+ScrollTrigger.scrollerProxy(document.body,{
+  scrollTop(){return lenis.scroll},
+  getBoundingClientRect(){return {top:0,left:0,width:window.innerWidth,height:window.innerHeight}},
+  pinType:document.body.style.transform?'transform':'fixed'
+});
+ScrollTrigger.refresh();
+
+gsap.registerPlugin(ScrollTrigger);
+
+// ===== CURSOR SPOTLIGHT =====
+(function(){
+  const spot = document.getElementById('cursor-spot');
+  let sx=0,sy=0,cx=0,cy=0;
+  document.addEventListener('mousemove',e=>{sx=e.clientX;sy=e.clientY;spot.classList.add('visible')});
+  document.addEventListener('mouseleave',()=>spot.classList.remove('visible'));
+  function tick(){cx+=(sx-cx)*.08;cy+=(sy-cy)*.08;spot.style.transform=`translate(${cx-250}px,${cy-250}px)`;requestAnimationFrame(tick)}
+  requestAnimationFrame(tick);
+})();
+
+// ===== DUST PARTICLES =====
+(function(){
+  const c=30;
+  for(let i=0;i<c;i++){
+    const p=document.createElement('div');p.className='dust-particle';
+    const s=.5+Math.random()*1;p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:${.08+Math.random()*.1}`;
+    document.body.appendChild(p);
+    const d=12+Math.random()*16,delay=Math.random()*10,fx=.5+Math.random()*1.5,ax=10+Math.random()*30;
+    gsap.to(p,{y:-window.innerHeight,opacity:0,duration:d,repeat:-1,delay,ease:'none',onUpdate:function(){const prog=this.progress(),drift=Math.sin(prog*Math.PI*2*fx)*ax;p.style.transform=`translateX(${drift}px)`}});
+  }
+})();
+
+// ===== NAV MAGNETIC =====
+document.querySelectorAll('.open-wallet').forEach(b=>{
+  b.addEventListener('mousemove',e=>{
+    const r=b.getBoundingClientRect(),x=e.clientX-r.left-r.width/2,y=e.clientY-r.top-r.height/2,dist=Math.sqrt(x*x+y*y);
+    if(dist<20){const pull=Math.min(dist/20,1)*8,a=Math.atan2(y,x);b.style.transform=`translate(${Math.cos(a)*pull}px,${Math.sin(a)*pull*.5}px)`}
+  });
+  b.addEventListener('mouseleave',()=>b.style.transform='');
+});
+
+// ===== HERO TIMELINE =====
+const heroTl=gsap.timeline({delay:.3});
+heroTl.to('.hero-badge',{opacity:1,y:0,duration:.6,ease:'power2.out'})
+  .to('#hero h1 .word',{y:0,opacity:1,duration:.8,stagger:.15,ease:'power2.out'},0)
+  .to('.hero-underline',{width:'100%',duration:.7,ease:'power2.out'},.7)
+  .to('#hero .sub',{opacity:1,y:0,duration:.6,ease:'power2.out'},.6)
+  .to('.hero-ctas',{opacity:1,y:0,duration:.6,ease:'power2.out'},.9);
+
+// ODOMETER
+(function(){
+  const od=document.getElementById('odometer');
+  if(!od)return;
+  const digits=String(24850).split('').map(Number),items=[];
+  od.innerHTML='';
+  digits.forEach((fd,i)=>{
+    const col=document.createElement('div');col.className='od-digit';
+    const strip=document.createElement('div');strip.className='od-strip';
+    for(let d=0;d<=9;d++){const s=document.createElement('span');s.textContent=String(d);strip.appendChild(s)}
+    const fs=document.createElement('span');fs.textContent=String(fd);strip.appendChild(fs);
+    col.appendChild(strip);od.appendChild(col);items.push({el:strip,digit:fd});
+  });
+  heroTl.call(()=>{items.forEach(({el,digit})=>{gsap.to(el,{y:-digit*44,duration:1.4,delay:.8+digit*.02,ease:'power3.out'})})},[],1.6);
+})();
+
+// CARD DIGITS REVEAL
+(function(){
+  const dd=document.getElementById('card-digits');
+  if(!dd)return;
+  const spans=dd.querySelectorAll('.d');
+  let ac=null;
+  spans.forEach((s,i)=>{
+    heroTl.to(s,{opacity:1,duration:.02,ease:'none',onStart:()=>{
+      if(i%2!==0)return;
+      try{if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=1800;g.gain.value=.03;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.04);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.04)}catch{}
+    }},2.6+i*.04);
+  });
+})();
+
+// CARD 3D TILT
+(function(){
+  const card=document.getElementById('hero-card'),wrap=card?.closest('.hero-visual');
+  if(!card||!wrap)return;
+  let mx=.5,my=.5,tx=.5,ty=.5,locked=!1;
+  function tick(){tx+=(mx-tx)*.08;ty+=(my-ty)*.08;const rx=(ty-.5)*-24,ry=(tx-.5)*24;card.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;requestAnimationFrame(tick)}
+  requestAnimationFrame(tick);
+  wrap.addEventListener('mousemove',e=>{if(locked)return;const r=wrap.getBoundingClientRect();mx=(e.clientX-r.left)/r.width;my=(e.clientY-r.top)/r.height;const sh=document.getElementById('card-sheen-cursor');if(sh){sh.style.setProperty('--sx',`${mx*100}%`);sh.style.setProperty('--sy',`${my*100}%`);sh.style.opacity='1'}});
+  wrap.addEventListener('mouseleave',()=>{mx=.5;my=.5;locked=!1;const sh=document.getElementById('card-sheen-cursor');if(sh)sh.style.opacity='0'});
+  card.addEventListener('mouseenter',()=>locked=!1);
+})();
+
+// HERO STATS COUNT-UP
+(function(){
+  const stats=document.querySelectorAll('.hero-stat');
+  if(!stats.length)return;
+  ScrollTrigger.create({trigger:'#hero-stats',start:'top 85%',onEnter:()=>{
+    stats.forEach((el,i)=>{
+      const tp=el.dataset.type,sfx=el.dataset.suffix||'',numEl=el.querySelector('.stat-num-inner');
+      if(!numEl)return;
+      if(tp==='terminal'){
+        const full='99.99';let j=0;
+        gsap.delayedCall(.1,function tick(){if(j<=full.length){numEl.textContent=full.slice(0,j)+(j<full.length?'|':'');j++;if(j<=full.length)gsap.delayedCall(.06,tick)}});
+      }else{
+        const target=parseInt(el.dataset.num);
+        gsap.to({v:0},{v:target,duration:1.5,delay:i*.12,ease:'power3.out',onUpdate:function(){numEl.textContent=Math.round(this.targets()[0].v).toLocaleString()}});
+      }
+    });
+    gsap.to(stats,{opacity:1,y:0,duration:.6,stagger:.1,ease:'power2.out'});
+  }});
+})();
+
+// TRUST BAR
+gsap.from('.trust-logo',{opacity:0,y:10,duration:.6,stagger:.08,ease:'power2.out',scrollTrigger:{trigger:'#trust',start:'top 90%'}});
+
+// SHOWCASE: CHART LINE DRAW + TRANSACTIONS
+ScrollTrigger.create({trigger:'#showcase',start:'top 80%',onEnter:()=>{
+  gsap.to('#chart-line',{strokeDashoffset:0,duration:1.5,ease:'power2.out'});
+  gsap.to('.tx-item',{opacity:1,x:0,duration:.5,stagger:.08,ease:'power2.out',delay:.5});
+}});
+
+// FEATURE GRID: CARD FLIP-IN
+gsap.to('.feature-card',{opacity:1,rotateX:0,duration:.6,stagger:.08,ease:'power2.out',scrollTrigger:{trigger:'#features',start:'top 80%'}});
+
+// ONBOARDING TIMELINE
+ScrollTrigger.create({trigger:'#onboarding',start:'top 70%',onEnter:()=>{
+  const steps=document.querySelectorAll('.timeline-step');
+  steps.forEach((s,i)=>{gsap.to(s,{opacity:1,duration:.5,delay:i*.3,ease:'power2.out',onStart:()=>{s.classList.add('active')}})});
+  gsap.to('#line-fill',{height:'100%',duration:1.5,ease:'power2.inOut',delay:.3});
+}});
+
+// SECURITY LOCK CLICK
+ScrollTrigger.create({trigger:'#security',start:'top 70%',onEnter:()=>{
+  const lock=document.getElementById('lock-icon');
+  if(lock){lock.classList.add('click');gsap.delayedCall(1,()=>lock.classList.remove('click'))}
+}});
+
+// SECURITY CARDS DEAL
+gsap.from('.security-card',{opacity:0,y:30,scale:.95,duration:.5,stagger:.12,ease:'power2.out',scrollTrigger:{trigger:'#security',start:'top 70%'}});
+gsap.from('.compliance-badge',{opacity:0,x:-10,duration:.4,stagger:.08,ease:'power2.out',scrollTrigger:{trigger:'#security',start:'top 85%'}});
+
+// STATS BAR COUNT-UP
+(function(){
+  const items=document.querySelectorAll('.stat-item');
+  ScrollTrigger.create({trigger:'#stats-bar',start:'top 85%',onEnter:()=>{
+    items.forEach((el,i)=>{
+      const target=parseFloat(el.dataset.target),suffix=el.dataset.suffix||'',counter=el.querySelector('.stat-counter');
+      if(counter){
+        gsap.to({v:0},{v:target,duration:2,delay:i*.15,ease:'power3.out',onUpdate:function(){
+          const v=this.targets()[0].v;
+          counter.textContent=suffix.includes('.')?v.toFixed(1):Math.round(v);
+        }});
+      }
+      // Flicker for 99.99%
+      if(target===99.99){
+        gsap.delayedCall(1.5,()=>{
+          const f=el.querySelector('.percent-flicker');
+          if(f)gsap.to(f,{opacity:.2,duration:.05,yoyo:true,repeat:5,ease:'none'});
+        });
+      }
+    });
+    gsap.to(items,{opacity:1,y:0,duration:.6,stagger:.1,ease:'power2.out'});
+  }});
+})();
+
+// TESTIMONIALS
+(function(){
+  const cards=document.querySelectorAll('.test-card');
+  ScrollTrigger.create({trigger:'#testimonials',start:'top 80%',onEnter:()=>{
+    gsap.to(cards,{opacity:1,y:0,duration:.6,stagger:.15,ease:'power2.out'});
+    cards.forEach((card,i)=>{
+      gsap.delayedCall(i*.15+.3,()=>{
+        const stars=card.querySelectorAll('.star');
+        gsap.to(stars,{scale:1,opacity:1,duration:.3,stagger:.08,ease:'back.out(2)',onStart:()=>{stars.forEach(s=>{s.style.transform='scale(1)'})}});
+      });
+      gsap.delayedCall(i*.15+.8,()=>{
+        const circle=card.querySelector('.test-avatar svg circle');
+        if(circle)gsap.to(circle,{strokeDashoffset:0,duration:.6,ease:'power2.out'});
+      });
+    });
+  }});
+})();
+
+// CTA SECTION
+gsap.from('.cta-container',{scale:.95,opacity:0,duration:.8,ease:'power2.out',scrollTrigger:{trigger:'#cta',start:'top 85%'}});
+
+// FOOTER
+gsap.from('.footer-col,.footer-brand',{opacity:0,y:20,duration:.5,stagger:.08,ease:'power2.out',scrollTrigger:{trigger:'footer',start:'top 90%'}});
+
+// SECTION VISIBILITY (fade+rise for all section-hidden)
+document.querySelectorAll('.section-hidden').forEach(el=>{
+  ScrollTrigger.create({trigger:el,start:'top 85%',onEnter:()=>el.classList.add('section-visible')});
+});
+
+// ===== REDUCED MOTION OVERRIDE =====
+if(window.matchMedia('(prefers-reduced-motion:reduce)').matches){
+  document.querySelectorAll('.card-sheen,.dust-particle,#cursor-spot,.card-sheen-cursor,.activity-peek').forEach(el=>{if(el)el.style.display='none'});
+  document.querySelectorAll('.hero-stat,.test-card,.feature-card,.section-hidden,.hero-badge,.hero-ctas,#hero .sub').forEach(el=>{el.style.opacity='1';el.style.transform='none'});
+  document.querySelectorAll('#hero h1 .word').forEach(el=>{el.style.opacity='1';el.style.transform='none'});
+  document.querySelector('.hero-underline').style.width='100%';
+  document.querySelectorAll('.stat-item,.step-item,.timeline-step').forEach(el=>{el.style.opacity='1'});
+  document.getElementById('cursor-spot').style.display='none';
+}
+
+console.log('🚀 Marjane Wallet — Full Preview Loaded');
+</script>
+</body>
+</html>

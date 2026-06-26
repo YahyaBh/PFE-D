@@ -28,53 +28,8 @@ const upload = multer({
     }
 });
 
-// ── Self-healing schema ──
-const fixKYCSchema = async () => {
-    try {
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS kyc_verifications (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id VARCHAR(36) NOT NULL UNIQUE,
-                status ENUM('UNVERIFIED','PENDING','VERIFIED','REJECTED') DEFAULT 'UNVERIFIED',
-                risk_score INT DEFAULT 0,
-                rejection_reason TEXT,
-                submitted_at DATETIME,
-                reviewed_at DATETIME,
-                reviewed_by VARCHAR(100),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS kyc_documents (
-                id VARCHAR(36) PRIMARY KEY,
-                verification_id VARCHAR(36) NOT NULL,
-                type ENUM('GOVERNMENT_ID','SELFIE','ADDRESS_PROOF') NOT NULL,
-                file_path VARCHAR(500) NOT NULL,
-                file_name VARCHAR(255) NOT NULL,
-                status ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (verification_id) REFERENCES kyc_verifications(id) ON DELETE CASCADE
-            )
-        `);
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS kyc_reviews (
-                id VARCHAR(36) PRIMARY KEY,
-                verification_id VARCHAR(36) NOT NULL,
-                action ENUM('SUBMITTED','APPROVED','REJECTED','RESUBMIT_REQUESTED') NOT NULL,
-                note TEXT,
-                reviewed_by VARCHAR(100) DEFAULT 'SYSTEM',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (verification_id) REFERENCES kyc_verifications(id) ON DELETE CASCADE
-            )
-        `);
-        // Add kyc_status to users table for quick lookup
-        await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(20) DEFAULT 'UNVERIFIED'`).catch(() => {});
-        console.log('Auto-migration: KYC tables ready.');
-    } catch (e) {
-        console.log('KYC schema note:', e.message);
-    }
-};
+// Schema handled by migrations
+const fixKYCSchema = async () => {};
 fixKYCSchema();
 
 // ── Helpers ──
@@ -195,7 +150,9 @@ const submitVerification = async (req, res) => {
 // ── 4. GET /api/kyc/documents ──
 const getDocuments = async (req, res) => {
     try {
-        const verification = await getOrCreateVerification(req.user.id);
+        const isAdmin = req.user.role === 'ROLE_ADMIN';
+        const targetUserId = isAdmin && req.query.userId ? req.query.userId : req.user.id;
+        const verification = await getOrCreateVerification(targetUserId);
         const [docs] = await db.query(
             'SELECT id, type, file_name, status, created_at FROM kyc_documents WHERE verification_id = ? ORDER BY created_at DESC',
             [verification.id]
@@ -316,6 +273,83 @@ const deleteDocument = async (req, res) => {
     }
 };
 
+// ── 8. GET /api/kyc/documents/:id/file ──
+const getDocumentFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [docs] = await db.query('SELECT * FROM kyc_documents WHERE id = ?', [id]);
+        const doc = docs[0];
+        if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+        // Users can only view their own docs; admins can view any
+        const isAdmin = req.user.role === 'ROLE_ADMIN';
+        if (!isAdmin) {
+            const [verifications] = await db.query('SELECT * FROM kyc_verifications WHERE id = ?', [doc.verification_id]);
+            if (verifications.length === 0 || verifications[0].user_id !== req.user.id) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
+        }
+
+        if (!fs.existsSync(doc.file_path)) {
+            return res.status(404).json({ error: 'File not found on disk' });
+        }
+
+        const ext = path.extname(doc.file_path).toLowerCase();
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.webp': 'image/webp',
+            '.pdf': 'application/pdf',
+        };
+
+        res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.file_name}"`);
+        res.sendFile(doc.file_path);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to retrieve document' });
+    }
+};
+
+// ── 9. POST /api/kyc/reset-status (Resubmit after rejection) ──
+const resetStatus = async (req, res) => {
+    try {
+        const [verifications] = await db.query('SELECT * FROM kyc_verifications WHERE user_id = ?', [req.user.id]);
+        const verification = verifications[0];
+        if (!verification) return res.status(404).json({ error: 'No verification record found' });
+
+        if (verification.status !== 'REJECTED') {
+            return res.status(400).json({ error: 'Only rejected verifications can be reset for resubmission' });
+        }
+
+        // Clear rejection and set back to UNVERIFIED so user can re-upload
+        await db.query(
+            'UPDATE kyc_verifications SET status = ?, rejection_reason = NULL, submitted_at = NULL, reviewed_at = NULL, reviewed_by = NULL WHERE id = ?',
+            ['UNVERIFIED', verification.id]
+        );
+        await db.query('UPDATE users SET kyc_status = ? WHERE id = ?', ['UNVERIFIED', req.user.id]);
+
+        // Delete old documents so user can re-upload
+        const [oldDocs] = await db.query('SELECT file_path FROM kyc_documents WHERE verification_id = ?', [verification.id]);
+        for (const d of oldDocs) {
+            if (fs.existsSync(d.file_path)) fs.unlinkSync(d.file_path);
+        }
+        await db.query('DELETE FROM kyc_documents WHERE verification_id = ?', [verification.id]);
+
+        await db.query(
+            'INSERT INTO kyc_reviews (id, verification_id, action, note) VALUES (?, ?, ?, ?)',
+            [uuidv4(), verification.id, 'RESET', 'User reset KYC for resubmission after rejection']
+        );
+
+        res.json({ message: 'KYC status reset. You can now re-upload documents and resubmit.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to reset KYC status' });
+    }
+};
+
 module.exports = {
     upload,
     getStatus,
@@ -324,5 +358,7 @@ module.exports = {
     getDocuments,
     reviewVerification,
     autoVerify,
-    deleteDocument
+    deleteDocument,
+    getDocumentFile,
+    resetStatus
 };

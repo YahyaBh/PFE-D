@@ -80,7 +80,7 @@ export default function VirtualCard({
                     </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center p-2 border border-white/10">
-                    <img src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
+                    <img loading="lazy" src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
                 </div>
               </div>
 

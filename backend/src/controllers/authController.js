@@ -3,6 +3,9 @@ const jwt = require('jsonwebtoken');
 const db = require('../lib/db');
 const { v4: uuidv4 } = require('uuid');
 const { logAudit } = require('../lib/auditLogger');
+const { validate } = require('../lib/validate');
+const riskService = require('../services/riskService');
+const emailService = require('../services/emailService');
 
 const generateCode = (length = 6) => {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -13,150 +16,22 @@ const generateCode = (length = 6) => {
   return result;
 };
 
-// --- SELF-HEALING DB ALIGNMENT ---
-const fixUserSchema = async () => {
-    try {
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('ROLE_USER', 'ROLE_ADMIN') DEFAULT 'ROLE_USER'");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS status ENUM('active', 'suspended') DEFAULT 'active'");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN DEFAULT FALSE");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_code VARCHAR(10)");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verification_code VARCHAR(10)");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires DATETIME");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS face_descriptor JSON");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS loyalty_points INT DEFAULT 0");
-        
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id VARCHAR(36),
-                action VARCHAR(100) NOT NULL,
-                resource VARCHAR(100),
-                old_value TEXT,
-                new_value TEXT,
-                ip_address VARCHAR(45),
-                device_info TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-            )
-        `);
-
-        // 4. LEDGER SYSTEM
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS ledger_accounts (
-                id VARCHAR(36) PRIMARY KEY,
-                owner_id VARCHAR(36),
-                name VARCHAR(100) NOT NULL,
-                type VARCHAR(50) NOT NULL,
-                balance DECIMAL(12,2) DEFAULT 0.00,
-                currency VARCHAR(10) DEFAULT 'MAD',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS ledger_entries (
-                id VARCHAR(36) PRIMARY KEY,
-                transaction_id VARCHAR(36) NOT NULL,
-                account_id VARCHAR(36) NOT NULL,
-                amount DECIMAL(12,2) NOT NULL,
-                description VARCHAR(255),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        // Initialize System Accounts
-        const systemAccounts = [
-            { id: 'system-bank-account', name: 'Marjane Reserve Bank', type: 'ASSET' },
-            { id: 'system-fees-account', name: 'Transaction Fees Revenue', type: 'REVENUE' }
-        ];
-
-        for (const acc of systemAccounts) {
-            await db.query('INSERT IGNORE INTO ledger_accounts (id, name, type) VALUES (?, ?, ?)', [acc.id, acc.name, acc.type]);
-        }
-
-        // 5. DISPUTES SYSTEM
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS disputes (
-                id VARCHAR(36) PRIMARY KEY,
-                transaction_id VARCHAR(36) NOT NULL,
-                user_id VARCHAR(36) NOT NULL,
-                reason VARCHAR(255) NOT NULL,
-                description TEXT,
-                status VARCHAR(20) DEFAULT 'OPEN',
-                resolution_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS dispute_messages (
-                id VARCHAR(36) PRIMARY KEY,
-                dispute_id VARCHAR(36) NOT NULL,
-                sender_id VARCHAR(36) NOT NULL,
-                message TEXT NOT NULL,
-                is_admin_reply BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS dispute_evidence (
-                id VARCHAR(36) PRIMARY KEY,
-                dispute_id VARCHAR(36) NOT NULL,
-                file_path VARCHAR(255) NOT NULL,
-                file_type VARCHAR(50),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        // 6. MERCHANT SYSTEM
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS merchant_users (
-                id VARCHAR(36) PRIMARY KEY,
-                merchant_id VARCHAR(36) NOT NULL,
-                user_id VARCHAR(36) NOT NULL,
-                role VARCHAR(20) DEFAULT 'OWNER',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS merchant_wallets (
-                id VARCHAR(36) PRIMARY KEY,
-                merchant_id VARCHAR(36) NOT NULL,
-                balance DECIMAL(20, 2) DEFAULT 0.00,
-                currency VARCHAR(10) DEFAULT 'MAD',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS merchant_settlements (
-                id VARCHAR(36) PRIMARY KEY,
-                merchant_id VARCHAR(36) NOT NULL,
-                amount DECIMAL(20, 2) NOT NULL,
-                currency VARCHAR(10) DEFAULT 'MAD',
-                status VARCHAR(20) DEFAULT 'PENDING',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `).catch(e => {});
-
-        console.log('--- DATABASE SELF-HEALING: SUCCESS (Ledger, Disputes & Merchant Systems Active) ---');
-        console.log("DB Alignment: User & Audit table schema verified.");
-    } catch (e) {
-        console.warn("DB Alignment warning:", e.message);
-    }
-};
+// Schema handled by migrations
+const fixUserSchema = async () => {};
 fixUserSchema();
 
 const register = async (req, res) => {
   try {
     const { email, password, name, phone, faceDescriptor } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const check = validate({
+        email: { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+        password: { required: true, type: 'string', minLength: 6 },
+        name: { type: 'string', maxLength: 100 },
+        phone: { type: 'string', pattern: /^\+?[\d\s-]{7,20}$/ }
+    }, req.body);
+    if (!check.valid) {
+      return res.status(400).json({ error: check.errors.join('; ') });
     }
 
     const [existingUsers] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
@@ -166,7 +41,6 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = uuidv4();
-    const walletId = uuidv4();
     const emailCode = generateCode();
     const phoneCode = generateCode();
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -182,21 +56,63 @@ const register = async (req, res) => {
       );
 
       // SIMULATION: Log codes to console
-      console.log('--- VERIFICATION CODES SENT ---');
-      console.log(`Email (${email}): ${emailCode}`);
-      console.log(`Phone (${phone}): ${phoneCode}`);
-      console.log('-------------------------------');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('--- VERIFICATION CODES SENT ---');
+        console.log(`Email (${email}): ${emailCode}`);
+        console.log(`Phone (${phone}): ${phoneCode}`);
+        console.log('-------------------------------');
+      }
 
+      // Create 6 wallet accounts: MAD, EUR, USD fiat + BTC, ETH, USDT crypto vaults
+      const fiatCurrencies = ['MAD', 'EUR', 'USD'];
+      const cryptoCurrencies = ['BTC', 'ETH', 'USDT'];
+
+      for (const currency of fiatCurrencies) {
+        const walletId = uuidv4();
+        await connection.query(
+          'INSERT INTO wallet_accounts (id, user_id, currency, balance, type, status, label) VALUES (?, ?, ?, 0, ?, ?, ?)',
+          [walletId, userId, currency, 'fiat', 'active', `${currency} Wallet`]
+        );
+        await connection.query(
+          'INSERT IGNORE INTO ledger_accounts (id, owner_id, name, type, balance, currency) VALUES (?, ?, ?, ?, 0, ?)',
+          [walletId, userId, `${currency} Wallet - User ${userId}`, 'LIABILITY', currency]
+        );
+      }
+
+      for (const currency of cryptoCurrencies) {
+        const vaultId = uuidv4();
+        await connection.query(
+          'INSERT INTO wallet_accounts (id, user_id, currency, balance, type, status, label) VALUES (?, ?, ?, 0, ?, ?, ?)',
+                      [vaultId, userId, currency, 'crypto', 'active', `${currency} Vault`]
+        );
+      }
+
+      // Legacy: also create old wallets table entry for backward compat
+      const legacyWalletId = uuidv4();
       await connection.query(
-        'INSERT INTO wallets (id, user_id, balance, currency) VALUES (?, ?, ?, ?)',
-        [walletId, userId, 0.0, 'MAD']
+        'INSERT INTO wallets (id, user_id, balance, currency) VALUES (?, ?, 0, ?)',
+        [legacyWalletId, userId, 'MAD']
       );
 
       await connection.commit();
-      
-      res.status(201).json({ 
+
+      await logAudit(req, 'USER_REGISTERED', 'auth', null, { email, name }, userId);
+
+      const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const refreshToken = uuidv4();
+      const tokenHash = await bcrypt.hash(refreshToken, 10);
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await db.query(
+        'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, device_info) VALUES (?, ?, ?, ?, ?)',
+        [uuidv4(), userId, tokenHash, expiresAt, req.headers['user-agent'] || 'unknown']
+      );
+
+      res.status(201).json({
         message: 'User registered successfully',
-        user: { id: userId, email, name } 
+        user: { id: userId, email, name },
+        accessToken,
+        refreshToken,
+        token: accessToken,
       });
     } catch (err) {
       await connection.rollback();
@@ -214,11 +130,13 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // DB ALIGNMENT
-    try {
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_code VARCHAR(10)");
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_expires DATETIME");
-    } catch(e) {}
+    const check = validate({
+        email: { required: true, type: 'string' },
+        password: { required: true, type: 'string' }
+    }, req.body);
+    if (!check.valid) {
+      return res.status(400).json({ error: check.errors.join('; ') });
+    }
 
     const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
     const user = users[0];
@@ -242,7 +160,6 @@ const login = async (req, res) => {
         'UPDATE users SET mfa_code = ?, mfa_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?',
         [mfaCode, user.id]
       );
-      console.log('MFA Update result:', JSON.stringify(updateResult));
       
       if (updateResult.affectedRows === 0) {
         console.error('WARNING: MFA code update affected 0 rows for user:', user.id);
@@ -253,9 +170,7 @@ const login = async (req, res) => {
     }
 
     // SIMULATION
-    console.log('--- LOGIN MFA CODE SENT ---');
-    console.log(`Email (${user.email}): ${mfaCode}`);
-    console.log('---------------------------');
+    await emailService.sendMFACode(user.email, mfaCode);
 
     res.json({ 
       message: 'Initial login successful', 
@@ -281,50 +196,46 @@ const verifyMFA = async (req, res) => {
     const [users] = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
     const user = users[0];
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Check expiry — use NOW() to be consistent with how we stored mfa_expires
-    console.log('MFA verify - user mfaCode:', user.mfa_code, 'mfaExpires:', user.mfa_expires);
-    
+    // Check expiry
     const [expiryCheck] = await db.query(
-      'SELECT NOW() > mfa_expires AS isExpired, NOW() as serverNow, mfa_expires FROM users WHERE id = ?',
+      'SELECT NOW() > mfa_expires AS isExpired FROM users WHERE id = ?',
       [userId]
     );
-    console.log('MFA expiry check:', JSON.stringify(expiryCheck[0]));
     
     if (expiryCheck[0]?.isExpired) {
-      return res.status(400).json({ error: 'MFA code expired. Please log in again to get a new code.' });
+      return res.status(400).json({ error: 'MFA code expired' });
     }
 
     if (user.mfa_code && user.mfa_code.toUpperCase() === code.toUpperCase()) {
-      const { device } = req.body;
-      const sessionId = uuidv4();
-      
-      // Track session
-      try {
-        await db.query(
-          'INSERT INTO device_sessions (id, user_id, device, last_login) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE device = ?, last_login = NOW()',
-          [sessionId, userId, device || 'Unknown Device', device || 'Unknown Device']
-        );
-      } catch (err) {
-        console.error('Failed to record session:', err);
+      // 1. Success — clear MFA
+      await db.query('UPDATE users SET mfa_code = NULL, mfa_expires = NULL WHERE id = ?', [userId]);
+
+      // 1.1 New Device Check
+      const [sessions] = await db.query('SELECT id FROM device_sessions WHERE user_id = ? AND device = ?', [userId, req.headers['user-agent'] || 'unknown']);
+      if (sessions.length === 0) {
+        await riskService.logRiskEvent(userId, 'NEW_DEVICE_LOGIN', 20, { device: req.headers['user-agent'] });
       }
 
-      const token = jwt.sign(
-        { id: userId }, 
-        process.env.JWT_SECRET || 'secret_key',
-        { expiresIn: '24h' }
+      // 2. Generate Dual Tokens (15m Access, 30d Refresh)
+      const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const refreshToken = uuidv4();
+      const tokenHash = await bcrypt.hash(refreshToken, 10);
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      // 3. Store Refresh Token
+      await db.query(
+        'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, device_info) VALUES (?, ?, ?, ?, ?)',
+        [uuidv4(), user.id, tokenHash, expiresAt, req.headers['user-agent'] || 'unknown']
       );
 
-      // Clear mfa code after success
-      await db.query('UPDATE users SET mfa_code = NULL WHERE id = ?', [userId]);
-
-      await logAudit(req, 'LOGIN_SUCCESS', 'auth', null, { sessionId }, userId);
+      await logAudit(req, 'LOGIN_SUCCESS', 'auth', null, null, userId);
 
       return res.json({ 
-        token,
+        accessToken,
+        refreshToken,
+        token: accessToken,
         role: user.role,
         message: 'MFA verified successfully'
       });
@@ -335,6 +246,67 @@ const verifyMFA = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error during MFA verification' });
+  }
+};
+
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
+
+    const [tokens] = await db.query('SELECT * FROM refresh_tokens WHERE expires_at > NOW()');
+    
+    let validToken = null;
+    for (const t of tokens) {
+      if (await bcrypt.compare(refreshToken, t.token_hash)) {
+        validToken = t;
+        break;
+      }
+    }
+
+    if (!validToken) return res.status(401).json({ error: 'Invalid or expired refresh token' });
+
+    // Rotate Tokens
+    await db.query('DELETE FROM refresh_tokens WHERE id = ?', [validToken.id]);
+
+    const newAccessToken = jwt.sign({ id: validToken.user_id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = uuidv4();
+    const newTokenHash = await bcrypt.hash(newRefreshToken, 10);
+
+    await db.query(
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, device_info) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY), ?)',
+      [uuidv4(), validToken.user_id, newTokenHash, req.headers['user-agent'] || 'unknown']
+    );
+
+    res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+  } catch (err) {
+    res.status(500).json({ error: 'Token refresh failed' });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    const [tokens] = await db.query('SELECT id, token_hash FROM refresh_tokens WHERE user_id = ?', [req.user.id]);
+    
+    for (const t of tokens) {
+      if (await bcrypt.compare(refreshToken, t.token_hash)) {
+        await db.query('DELETE FROM refresh_tokens WHERE id = ?', [t.id]);
+        break;
+      }
+    }
+    res.json({ message: 'Logged out' });
+  } catch (err) {
+    res.status(500).json({ error: 'Logout failed' });
+  }
+};
+
+const logoutAll = async (req, res) => {
+  try {
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [req.user.id]);
+    res.json({ message: 'Logged out from all devices' });
+  } catch (err) {
+    res.status(500).json({ error: 'Logout all failed' });
   }
 };
 
@@ -372,7 +344,7 @@ const verifyToken = async (req, res) => {
       if (updatedUser.is_email_verified && updatedUser.is_phone_verified) {
           token = jwt.sign(
             { id: userId }, 
-            process.env.JWT_SECRET || 'secret_key',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
           );
       }
@@ -395,14 +367,6 @@ const verifyToken = async (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    // TEMPORARY AUTO-MIGRATION (to fix missing columns in some environments)
-    try {
-        await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS loyalty_points INT DEFAULT 0");
-        console.log("Auto-migration: loyalty_points added.");
-    } catch (e) {
-        // Ignore if column already exists
-    }
-
     // 1. Fetch User and Session data
     const [users] = await db.query(`
       SELECT u.id, u.email, u.name, u.phone, u.role, u.tier, u.loyalty_points, u.created_at, 
@@ -424,9 +388,9 @@ const getMe = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // 2. Fetch all wallets for the user
-    const [wallets] = await db.query(
-      'SELECT id, balance, currency FROM wallets WHERE user_id = ?',
+    // 2. Fetch all wallet_accounts for the user
+    const [walletAccounts] = await db.query(
+      'SELECT id, balance, currency, type, status, label FROM wallet_accounts WHERE user_id = ?',
       [req.user.id]
     );
 
@@ -441,17 +405,21 @@ const getMe = async (req, res) => {
       loyaltyPoints: user.loyalty_points,
       isEmailVerified: !!user.is_email_verified,
       isPhoneVerified: !!user.is_phone_verified,
+      twoFactorEnabled: !!user.two_factor_enabled,
       createdAt: user.created_at,
-      wallets: wallets.map(w => ({
+      wallets: walletAccounts.map(w => ({
         id: w.id,
         balance: parseFloat(w.balance),
-        currency: w.currency
+        currency: w.currency,
+        type: w.type,
+        status: w.status,
+        label: w.label,
       })),
-      // For backward compatibility (primary wallet)
+      // For backward compatibility (primary MAD wallet)
       wallet: {
-        id: wallets[0]?.id,
-        balance: parseFloat(wallets[0]?.balance || 0),
-        currency: wallets[0]?.currency || 'MAD'
+        id: walletAccounts.find(w => w.currency === 'MAD')?.id,
+        balance: parseFloat(walletAccounts.find(w => w.currency === 'MAD')?.balance || 0),
+        currency: 'MAD'
       },
       device: user.device || 'Unknown Device',
       lastLogin: user.last_login ? new Date(user.last_login).toLocaleString('en-US', {
@@ -474,6 +442,11 @@ const getMe = async (req, res) => {
 const getFaceDescriptor = async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // Only allow users to access their own face descriptor
+    if (req.user.id !== userId && req.user.role !== 'ROLE_ADMIN') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     
     const [users] = await db.query('SELECT face_descriptor FROM users WHERE id = ?', [userId]);
     const user = users[0];
@@ -527,14 +500,136 @@ const resendMFA = async (req, res) => {
     }
 
     // SIMULATION: Log codes to console
-    console.log('--- MFA CODE RESENT ---');
-    console.log(`Email (${user.email}): ${mfaCode}`);
-    console.log('-----------------------');
+    await emailService.sendMFACode(user.email, mfaCode);
 
     res.json({ message: 'A new MFA code has been sent to your email.' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error during MFA resend' });
+  }
+};
+
+const resendVerification = async (req, res) => {
+  try {
+    const { userId, type } = req.body;
+
+    if (!userId || !type) {
+      return res.status(400).json({ error: 'UserId and type (email/phone) are required' });
+    }
+
+    const [users] = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const codeColumn = type === 'email' ? 'email_verification_code' : 'phone_verification_code';
+    const newCode = generateCode();
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db.query(
+      `UPDATE users SET ${codeColumn} = ?, verification_expires = ? WHERE id = ?`,
+      [newCode, expiry, userId]
+    );
+
+    if (type === 'email') {
+      await emailService.sendGenericEmail({
+        to: user.email,
+        subject: 'Verify Your Email - Marjane Wallet',
+        title: 'Email Verification Code',
+        bodyHtml: `
+          <p>Hello,</p>
+          <p>Use the following code to verify your email address for Marjane Wallet. This code expires in 24 hours.</p>
+          <div style="background-color: #1b263b; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+              <span style="font-size: 2.5rem; font-weight: bold; letter-spacing: 5px; color: #e0c56e;">${newCode}</span>
+          </div>
+        `
+      });
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`--- RESENT ${type.toUpperCase()} CODE ---`);
+      console.log(`To: ${type === 'email' ? user.email : user.phone}`);
+      console.log(`Code: ${newCode}`);
+      console.log('-------------------------------');
+    }
+
+    res.json({ message: `A new verification code has been sent to your ${type}.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error during resend verification' });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const [users] = await db.query('SELECT id, name FROM users WHERE email = ?', [email]);
+    const user = users[0];
+
+    // Always return success even if email not found (prevents email enumeration)
+    if (!user) {
+      return res.json({ message: 'If that email is registered, a reset link has been sent.' });
+    }
+
+    const resetToken = uuidv4();
+    const tokenHash = await bcrypt.hash(resetToken, 10);
+
+    await db.query(
+      'UPDATE users SET reset_token = ?, reset_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?',
+      [tokenHash, user.id]
+    );
+
+    await emailService.sendPasswordResetEmail(email, resetToken);
+
+    res.json({ message: 'If that email is registered, a reset link has been sent.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error during password reset request' });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    const [users] = await db.query(
+      'SELECT id, reset_token, reset_expires FROM users WHERE reset_expires IS NOT NULL AND reset_expires > NOW()'
+    );
+
+    let targetUser = null;
+    for (const u of users) {
+      if (u.reset_token && await bcrypt.compare(token, u.reset_token)) {
+        targetUser = u;
+        break;
+      }
+    }
+
+    if (!targetUser) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.query(
+      'UPDATE users SET password = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?',
+      [hashedPassword, targetUser.id]
+    );
+
+    await logAudit(req, 'PASSWORD_RESET', 'auth', null, null, targetUser.id);
+
+    res.json({ message: 'Password has been reset successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error during password reset' });
   }
 };
 
@@ -544,6 +639,12 @@ module.exports = {
   verifyMFA,
   verifyToken,
   resendMFA,
+  resendVerification,
+  forgotPassword,
+  resetPassword,
+  logout,
+  logoutAll,
+  refreshToken,
   getMe,
   getFaceDescriptor
 };

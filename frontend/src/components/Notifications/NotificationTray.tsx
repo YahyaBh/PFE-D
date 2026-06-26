@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Bell, Check, Trash2, ShieldAlert, CreditCard, Sparkles, MessageSquare, Clock } from "lucide-react";
+import { X, Bell, Check, Trash2, ShieldAlert, CreditCard, Sparkles, MessageSquare, Clock, Settings, ArrowLeftRight } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -44,6 +44,8 @@ export default function NotificationTray({
       case 'REQUEST': return <MessageSquare className="w-5 h-5 text-indigo-500" />;
       case 'SECURITY': return <ShieldAlert className="w-5 h-5 text-red-500" />;
       case 'REWARD': return <Sparkles className="w-5 h-5 text-amber-500" />;
+      case 'SYSTEM': return <Settings className="w-5 h-5 text-slate-400" />;
+      case 'TRANSACTION': return <ArrowLeftRight className="w-5 h-5 text-emerald-500" />;
       default: return <Bell className="w-5 h-5 text-slate-500" />;
     }
   };

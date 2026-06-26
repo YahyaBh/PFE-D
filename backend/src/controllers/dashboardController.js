@@ -11,7 +11,7 @@ const getDashboardStats = async (req, res) => {
         // We sum balances across all wallets. Note: In a real app we'd convert currencies,
         // but for now we'll return the raw list and the sum assuming 1:1 or MAD primary.
         const [wallets] = await db.query(
-            'SELECT balance, currency FROM wallets WHERE user_id = ?',
+            'SELECT balance, currency FROM wallet_accounts WHERE user_id = ?',
             [userId]
         );
         
@@ -21,7 +21,7 @@ const getDashboardStats = async (req, res) => {
         const [pendingRows] = await db.query(`
             SELECT SUM(t.amount) as pendingSum 
             FROM transactions t
-            INNER JOIN wallets w ON t.receiver_wallet_id = w.id
+            INNER JOIN wallet_accounts w ON t.receiver_wallet_id = w.id
             WHERE w.user_id = ? AND t.status = "PENDING"
         `, [userId]);
         const pendingBalance = parseFloat(pendingRows[0].pendingSum || 0);
@@ -33,7 +33,7 @@ const getDashboardStats = async (req, res) => {
         const [spendingRows] = await db.query(`
             SELECT SUM(t.amount) as spendingSum 
             FROM transactions t
-            INNER JOIN wallets w ON t.sender_wallet_id = w.id
+            INNER JOIN wallet_accounts w ON t.sender_wallet_id = w.id
             WHERE w.user_id = ? AND t.status = "COMPLETED" 
             AND t.created_at >= ?
         `, [userId, thirtyDaysAgo]);
@@ -46,8 +46,8 @@ const getDashboardStats = async (req, res) => {
         // 5. Last Transaction
         const [lastTransRows] = await db.query(`
             SELECT t.* FROM transactions t
-            LEFT JOIN wallets sw ON t.sender_wallet_id = sw.id
-            LEFT JOIN wallets rw ON t.receiver_wallet_id = rw.id
+            LEFT JOIN wallet_accounts sw ON t.sender_wallet_id = sw.id
+            LEFT JOIN wallet_accounts rw ON t.receiver_wallet_id = rw.id
             WHERE sw.user_id = ? OR rw.user_id = ?
             ORDER BY t.created_at DESC LIMIT 1
         `, [userId, userId]);

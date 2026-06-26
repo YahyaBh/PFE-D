@@ -1,6 +1,10 @@
 const db = require('../lib/db');
 const { v4: uuidv4 } = require('uuid');
 
+// Schema handled by migrations
+const fixLoyaltySchema = async () => {};
+fixLoyaltySchema();
+
 const getLoyaltyStatus = async (req, res) => {
     try {
         const userId = req.user.id;

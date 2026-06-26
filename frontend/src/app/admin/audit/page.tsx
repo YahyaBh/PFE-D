@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from "react";
 import { 
   Shield, 
   Search, 
@@ -13,12 +14,15 @@ import {
   Globe, 
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   RefreshCw,
   Clock
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { api } from "@/lib/api";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -42,21 +46,38 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, actionFilter]);
 
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const url = new URL("http://localhost:5000/api/admin/audit-logs");
-      if (actionFilter) url.searchParams.append("action", actionFilter);
+      const params = new URLSearchParams({ page: String(page), limit: "15" });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (actionFilter) params.set("action", actionFilter);
       
-      const res = await fetch(url.toString(), {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await api.get(`/admin/audit-logs?${params}`);
       const data = await res.json();
-      setLogs(Array.isArray(data) ? data : []);
+      if (data.logs) {
+        setLogs(data.logs);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+      } else {
+        setLogs(Array.isArray(data) ? data : []);
+        setTotal(Array.isArray(data) ? data.length : 0);
+        setTotalPages(1);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -66,14 +87,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     fetchLogs();
-  }, [actionFilter]);
-
-  const filteredLogs = logs.filter(log => 
-    log.action.toLowerCase().includes(search.toLowerCase()) ||
-    log.userName?.toLowerCase().includes(search.toLowerCase()) ||
-    log.userEmail?.toLowerCase().includes(search.toLowerCase()) ||
-    log.resource.toLowerCase().includes(search.toLowerCase())
-  );
+  }, [page, debouncedSearch, actionFilter]);
 
   const getActionColor = (action: string) => {
     if (action.includes('FAILED') || action.includes('SUSPENDED') || action.includes('REMOVED')) return 'text-red-400 bg-red-400/10 border-red-400/20';
@@ -171,7 +185,7 @@ export default function AuditLogsPage() {
                     <p className="text-slate-500 mt-4 font-medium italic">Scanning audit history...</p>
                   </td>
                 </tr>
-              ) : filteredLogs.length === 0 ? (
+              ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-20 text-center">
                     <Shield className="w-12 h-12 text-slate-700 mx-auto mb-4" />
@@ -179,7 +193,7 @@ export default function AuditLogsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
+                logs.map((log) => (
                   <React.Fragment key={log.id}>
                     <tr className={cn(
                       "hover:bg-white/5 transition-colors cursor-pointer group",
@@ -259,9 +273,33 @@ export default function AuditLogsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Page {page} of {totalPages} ({total} total)</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page <= 1}
+                className="p-2.5 rounded-xl disabled:opacity-20" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                const p = start + i;
+                return p <= totalPages ? (
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`w-9 h-9 rounded-xl text-xs font-bold ${p === page ? 'bg-blue-600 text-white' : ''}`}
+                    style={p !== page ? { background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)' } : {}}>{p}</button>
+                ) : null;
+              })}
+              <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page >= totalPages}
+                className="p-2.5 rounded-xl disabled:opacity-20" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-import React from "react";

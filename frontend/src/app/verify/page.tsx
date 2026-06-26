@@ -6,6 +6,7 @@ import { Shield, Mail, Phone, ArrowRight, CheckCircle2, AlertCircle, Loader2 } f
 import Toast from "@/components/ui/Toast";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { api } from "@/lib/api";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -20,6 +21,7 @@ function VerifyContent() {
   const [step, setStep] = useState<"email" | "phone">(initialStep);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -37,11 +39,7 @@ function VerifyContent() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/verify-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, type: step, code: code.toUpperCase() }),
-      });
+      const res = await api.post("/auth/verify-token", { userId, type: step, code: code.toUpperCase() });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Verification failed");
@@ -72,20 +70,31 @@ function VerifyContent() {
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    setError("");
+    try {
+      const res = await api.post("/auth/resend-verification", { userId, type: step });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resend code");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.toUpperCase().slice(0, 6);
     setCode(val);
-    if (val.length === 6) {
-      // Auto-submit if needed, but manual is safer for alphanumeric
-    }
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 transition-colors duration-500">
       {error && <Toast message={error} onClose={() => setError("")} />}
       <div className="max-w-md w-full text-center animate-in fade-in slide-in-from-bottom-2 duration-700">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-white mb-8 border border-foreground/5 relative shadow-xl p-4">
-          <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-card mb-8 border border-foreground/5 relative shadow-xl p-4">
+          <img loading="lazy" src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
           <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center">
              {step === "email" ? <Mail className="w-4 h-4 text-primary" /> : <Phone className="w-4 h-4 text-primary" />}
           </div>
@@ -139,9 +148,13 @@ function VerifyContent() {
 
         <div className="mt-10 pt-8 border-t border-border flex flex-col items-center gap-4">
            <p className="text-muted-foreground text-sm font-medium">Didn't receive the code?</p>
-           <button className="text-primary hover:text-primary/80 font-black uppercase tracking-widest text-[11px] transition-colors">
-              Resend Code
-           </button>
+           <button
+              onClick={handleResend}
+              disabled={resending}
+              className="text-primary hover:text-primary/80 font-black uppercase tracking-widest text-[11px] transition-colors disabled:opacity-30"
+            >
+              {resending ? "Sending..." : "Resend Code"}
+            </button>
         </div>
 
         <p className="mt-8 text-xs text-muted-foreground/60">

@@ -1,0 +1,11 @@
+WARNING: JWT_SECRET is not properly configured. Set a strong random secret in .env for production.
+Error: Duplicate entry '+212600000099' for key 'phone'
+    at PromisePoolConnection.query (C:\Users\games\Desktop\PFE-D\backend\node_modules\mysql2\lib\promise\connection.js:29:22)
+    at register (C:\Users\games\Desktop\PFE-D\backend\src\controllers\authController.js:246:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_DUP_ENTRY',
+  errno: 1062,
+  sql: "INSERT INTO users (id, email, password, name, phone, email_verification_code, phone_verification_code, verification_expires, face_descriptor) VALUES ('7b705a39-36bb-4dd5-b028-4d67ed1cf422', 'e2e-1780965907404@test.com', '$2b$10$1YdOumMR7gqCzuqSUoCHCeb5JkHMC5ZszhZ8jBsw/KvjTUqR2TicO', 'E2E Test', '+212600000099', 'S808E2', '9ITL47', '2026-06-10 01:45:07.475', NULL)",
+  sqlState: '23000',
+  sqlMessage: "Duplicate entry '+212600000099' for key 'phone'"
+}

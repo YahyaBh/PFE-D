@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 import { 
   TrendingUp, 
   Users, 
@@ -13,20 +14,12 @@ import {
   Calendar,
   Layers,
   Zap,
-  DollarSign
+  DollarSign,
+  Clock
 } from "lucide-react";
-import { 
-    AreaChart, 
-    Area, 
-    XAxis, 
-    YAxis, 
-    CartesianGrid, 
-    Tooltip, 
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-    Cell
-} from 'recharts';
+import dynamic from 'next/dynamic';
+
+const SalesChart = dynamic(() => import('@/components/MerchantSalesChart'), { ssr: false });
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -42,10 +35,7 @@ export default function MerchantDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/merchant/stats", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const res = await api.get("/merchant/stats");
         const data = await res.json();
         setStats(data);
       } catch (err) {
@@ -58,8 +48,31 @@ export default function MerchantDashboard() {
   }, []);
 
   if (loading) return (
-    <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+    <div className="h-full space-y-8 animate-pulse p-6">
+      <div className="p-10 rounded-[3rem]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="h-4 w-32 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="h-10 w-64 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="rounded-[2rem] p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="h-4 w-24 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} />
+            <div className="h-8 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 rounded-[2.5rem] p-8" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="h-6 w-48 rounded-full mb-10" style={{ background: 'rgba(255,255,255,0.05)' }} />
+          <div className="h-[350px] rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} />
+        </div>
+        <div className="lg:col-span-4 rounded-[2.5rem] p-8" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="h-6 w-32 rounded-full mb-8" style={{ background: 'rgba(255,255,255,0.05)' }} />
+          {[1,2,3,4].map(i => (
+            <div key={i} className="h-16 rounded-2xl mb-4" style={{ background: 'rgba(255,255,255,0.03)' }} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 
@@ -74,20 +87,52 @@ export default function MerchantDashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Pending Approval Banner */}
+      {stats?.merchant?.merchantStatus === "PENDING_APPROVAL" && (
+        <div 
+          className="p-6 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4 duration-500"
+          style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)' }}
+        >
+          <div 
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(251,191,36,0.1)' }}
+          >
+            <Clock className="w-6 h-6" style={{ color: '#f59e0b' }} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-black" style={{ color: '#d97706' }}>Application Pending Review</p>
+            <p className="text-xs font-medium mt-1" style={{ color: 'rgba(217,119,6,0.7)' }}>Your merchant application is being reviewed. You'll be able to accept payments once approved.</p>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden p-10 bg-gradient-to-br from-primary via-primary/80 to-primary/60 rounded-[3rem] shadow-2xl">
-         <div className="absolute top-0 right-0 p-10 opacity-10">
+      <div 
+        className="relative overflow-hidden p-10 rounded-[3rem] shadow-2xl"
+        style={{ 
+          background: 'linear-gradient(135deg, #1a1a3e, #0d0d2b)',
+          border: '1px solid rgba(255,255,255,0.06)'
+        }}
+      >
+         <div className="absolute top-0 right-0 p-10 opacity-5">
             <Zap className="w-64 h-64 text-white" />
          </div>
          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
-               <p className="text-white/80 font-bold uppercase tracking-[0.3em] text-[10px] mb-2">Merchant Insights</p>
+               <p className="text-white/60 font-bold uppercase tracking-[0.3em] text-[10px] mb-2">Merchant Insights</p>
                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
                   Welcome back, <br /> {stats?.merchant?.merchantName}
                </h1>
             </div>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-[2.5rem] flex flex-col items-center">
-               <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1">Available for Settlement</p>
+            <div 
+              className="p-6 rounded-[2.5rem] flex flex-col items-center"
+              style={{ 
+                background: 'rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}
+            >
+               <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Available for Settlement</p>
                <p className="text-4xl font-black text-white">{parseFloat(stats?.wallet?.balance).toFixed(2)} <span className="text-lg opacity-60">MAD</span></p>
             </div>
          </div>
@@ -109,13 +154,13 @@ export default function MerchantDashboard() {
             icon={ShoppingBag}
             color="indigo"
          />
-         <KPICard 
+          <KPICard 
             title="Average Order" 
-            value={`${(totalVolume / (totalCount || 1)).toFixed(2)} MAD`} 
+            value={`${totalCount > 0 ? (totalVolume / totalCount).toFixed(2) : '0.00'} MAD`} 
             trend="-1.2%" 
             icon={Target}
             color="purple"
-         />
+          />
          <KPICard 
             title="Customer Growth" 
             value="124" 
@@ -127,90 +172,97 @@ export default function MerchantDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Chart */}
-          <div className="lg:col-span-8 bg-card border border-border rounded-[2.5rem] p-8 shadow-sm">
+          <div 
+            className="lg:col-span-8 rounded-[2.5rem] p-8"
+            style={{ 
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)'
+            }}
+          >
              <div className="flex justify-between items-center mb-10">
                 <div>
-                   <h3 className="text-xl font-black text-foreground">Sales Performance</h3>
-                   <p className="text-xs text-muted-foreground font-extrabold uppercase tracking-widest mt-1">Net revenue over time</p>
+                   <h3 className="text-xl font-black text-white">Sales Performance</h3>
+                   <p className="text-xs font-extrabold uppercase tracking-widest mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Net revenue over time</p>
                 </div>
                 <div className="flex gap-2">
-                   <button className="px-4 py-2 bg-primary text-white text-[10px] font-black rounded-xl">30 DAYS</button>
-                   <button className="px-4 py-2 bg-muted text-muted-foreground text-[10px] font-black rounded-xl">QUARTER</button>
+                   <button 
+                     className="px-4 py-2 text-[10px] font-black rounded-xl"
+                     style={{ background: '#FFD700', color: '#000000' }}
+                   >30 DAYS</button>
+                   <button 
+                     className="px-4 py-2 text-[10px] font-black rounded-xl"
+                     style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}
+                   >QUARTER</button>
                 </div>
              </div>
 
              <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analyticsData}>
-                        <defs>
-                            <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis 
-                            dataKey="name" 
-                            stroke="var(--muted-foreground)" 
-                            fontSize={10} 
-                            tickLine={false} 
-                            axisLine={false} 
-                        />
-                        <YAxis 
-                            stroke="var(--muted-foreground)" 
-                            fontSize={10} 
-                            tickLine={false} 
-                            axisLine={false} 
-                            tickFormatter={(v: any) => `${v}`}
-                        />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '1rem' }}
-                            itemStyle={{ color: 'var(--foreground)', fontSize: '12px', fontWeight: 'bold' }}
-                        />
-                        <Area 
-                            type="monotone" 
-                            dataKey="volume" 
-                            stroke="var(--primary)" 
-                            strokeWidth={3}
-                            fillOpacity={1} 
-                            fill="url(#colorVolume)" 
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
+                <SalesChart data={analyticsData} />
              </div>
           </div>
 
           {/* Recent Orders */}
-          <div className="lg:col-span-4 bg-card border border-border rounded-[2.5rem] p-8 shadow-sm flex flex-col">
+          <div 
+            className="lg:col-span-4 rounded-[2.5rem] p-8 flex flex-col"
+            style={{ 
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)'
+            }}
+          >
              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl font-black text-foreground">Latest Sales</h3>
-                <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-primary/80 transition-colors">View All</button>
+                <h3 className="text-xl font-black text-white">Latest Sales</h3>
+                <button 
+                  className="text-[10px] font-black uppercase tracking-widest transition-colors"
+                  style={{ color: '#FFD700' }}
+                >View All</button>
              </div>
 
              <div className="flex-1 space-y-4">
                 {stats?.recentTransactions?.map((tx: any) => (
-                    <div key={tx.id} className="group p-4 bg-background/50 border border-border rounded-2xl flex items-center gap-4 hover:border-primary/30 transition-all">
-                        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                            <ShoppingBag className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                    <div 
+                      key={tx.id} 
+                      className="group p-4 rounded-2xl flex items-center gap-4 transition-all"
+                      style={{ 
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)'
+                      }}
+                    >
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                          style={{ background: 'rgba(255,255,255,0.05)' }}
+                        >
+                            <ShoppingBag className="w-5 h-5" style={{ color: 'rgba(255,255,255,0.4)' }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-foreground truncate">{tx.customerName || "Wallet User"}</p>
-                            <p className="text-[10px] text-muted-foreground font-bold mt-0.5">{new Date(tx.created_at).toLocaleDateString()} · {tx.currency}</p>
+                            <p className="text-xs font-black text-white truncate">{tx.customerName || "Wallet User"}</p>
+                            <p className="text-[10px] font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{new Date(tx.created_at).toLocaleDateString()} · {tx.currency}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-xs font-black text-green-500">+{parseFloat(tx.amount).toFixed(2)}</p>
+                            <p className="text-xs font-black" style={{ color: '#22c55e' }}>+{parseFloat(tx.amount).toFixed(2)}</p>
                         </div>
                     </div>
                 ))}
              </div>
 
-             <div className="mt-8 p-6 bg-muted rounded-3xl border border-border/50 flex items-center justify-between">
+             <div 
+               className="mt-8 p-6 rounded-3xl flex items-center justify-between"
+               style={{ 
+                 background: 'rgba(255,255,255,0.02)',
+                 border: '1px solid rgba(255,255,255,0.06)'
+               }}
+             >
                 <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Weekly Profit</p>
-                    <p className="text-base font-black text-foreground">+ Morocco · Casablanca</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Weekly Profit</p>
+                    <p className="text-base font-black text-white">+ Morocco · Casablanca</p>
                 </div>
-                <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
-                    <TrendingUp className="w-6 h-6 text-white" />
+                <div 
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{ 
+                    background: '#FFD700',
+                    boxShadow: '0 0 20px rgba(255,215,0,0.2)'
+                  }}
+                >
+                    <TrendingUp className="w-6 h-6 text-black" />
                 </div>
              </div>
           </div>
@@ -220,23 +272,35 @@ export default function MerchantDashboard() {
 }
 
 function KPICard({ title, value, trend, icon: Icon, color }: any) {
-    const colors: any = {
-        blue: "text-blue-500 bg-blue-500/10",
-        indigo: "text-indigo-500 bg-indigo-500/10",
-        purple: "text-purple-500 bg-purple-500/10",
-        emerald: "text-emerald-500 bg-emerald-500/10",
+    const iconColors: any = {
+        blue: "#3b82f6",
+        indigo: "#6366f1",
+        purple: "#a855f7",
+        emerald: "#10b981",
     };
 
     return (
-        <div className="bg-card border border-border rounded-[2rem] p-6 hover:border-border/80 transition-all shadow-sm">
+        <div 
+          className="rounded-[2rem] p-6 transition-all"
+          style={{ 
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)'
+          }}
+        >
             <div className="flex justify-between items-start mb-4">
-                <div className={cn("p-3 rounded-2xl", colors[color])}>
-                    <Icon className="w-5 h-5" />
+                <div 
+                  className="p-3 rounded-2xl"
+                  style={{ background: `${iconColors[color]}20` }}
+                >
+                    <Icon className="w-5 h-5" style={{ color: iconColors[color] }} />
                 </div>
-                <span className="text-[10px] font-black text-green-500 bg-green-500/10 px-2 py-1 rounded-lg">{trend}</span>
+                <span 
+                  className="text-[10px] font-black px-2 py-1 rounded-lg"
+                  style={{ color: '#22c55e', background: 'rgba(34,197,94,0.1)' }}
+                >{trend}</span>
             </div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">{title}</p>
-            <p className="text-2xl font-black text-foreground">{value}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{title}</p>
+            <p className="text-2xl font-black text-white">{value}</p>
         </div>
     );
 }

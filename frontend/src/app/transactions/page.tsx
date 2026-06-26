@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -13,12 +14,6 @@ import Toast from "@/components/ui/Toast";
 import Link from "next/link";
 import NotificationTray from "@/components/Notifications/NotificationTray";
 import TransactionDetailModal from "@/components/Wallet/TransactionDetailModal";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 const TYPE_OPTIONS = [
   { value: "", label: "All Types" },
@@ -36,13 +31,18 @@ const STATUS_OPTIONS = [
   { value: "FAILED", label: "Failed" },
 ];
 
-const TYPE_ICONS: Record<string, any> = {
-  P2P_TRANSFER: ArrowUpRight,
-  DEPOSIT: ArrowDownLeft,
-  WITHDRAWAL: Landmark,
-  QR_PAYMENT: QrCode,
-  REQUEST: FileText,
+const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
+  P2P_TRANSFER: { icon: ArrowUpRight, label: "Transfer", color: "#0066FF" },
+  DEPOSIT: { icon: ArrowDownLeft, label: "Deposit", color: "#22C55E" },
+  WITHDRAWAL: { icon: Landmark, label: "Withdrawal", color: "#6366F1" },
+  QR_PAYMENT: { icon: QrCode, label: "Payment", color: "#FFD700" },
+  REQUEST: { icon: FileText, label: "Request", color: "#A855F7" },
 };
+
+function formatMAD(amount: number | string): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  return num.toFixed(2) + " MAD";
+}
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -77,10 +77,8 @@ export default function TransactionsPage() {
   const [selectedTxForDetail, setSelectedTxForDetail] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   const fetchTransactions = useCallback(async (p: number = page) => {
-    if (!token) return;
+    if (typeof window !== "undefined" && !localStorage.getItem("token")) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -95,12 +93,8 @@ export default function TransactionsPage() {
       if (maxAmount) params.set("maxAmount", maxAmount);
 
       const [res, notifRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/transactions/history?${params.toString()}`, {
-            headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch("http://localhost:5000/api/notifications", {
-            headers: { "Authorization": `Bearer ${token}` }
-        })
+        api.get(`/transactions/history?${params.toString()}`),
+        api.get("/notifications")
       ]);
       
       const [data, notifData] = await Promise.all([
@@ -120,12 +114,12 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, search, typeFilter, statusFilter, dateFrom, dateTo, minAmount, maxAmount]);
+  }, [search, typeFilter, statusFilter, dateFrom, dateTo, minAmount, maxAmount]);
 
   useEffect(() => {
-    if (!token) { router.push("/login"); return; }
+    if (typeof window !== "undefined" && !localStorage.getItem("token")) { router.push("/login"); return; }
     fetchTransactions(1);
-  }, [token]);
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -177,17 +171,10 @@ export default function TransactionsPage() {
     if (!disputeReason) return;
     setSubmittingDispute(true);
     try {
-      const res = await fetch("http://localhost:5000/api/disputes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          transactionId: selectedTx.id,
-          reason: disputeReason,
-          description: disputeDesc,
-        }),
+      const res = await api.post("/disputes", {
+        transactionId: selectedTx.id,
+        reason: disputeReason,
+        description: disputeDesc,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -205,10 +192,7 @@ export default function TransactionsPage() {
 
   const handleMarkNotifRead = async (id: string) => {
     try {
-        await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
-            method: 'PATCH',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+        await api.patch(`/notifications/${id}/read`);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     } catch (e) {
         console.error(e);
@@ -217,10 +201,7 @@ export default function TransactionsPage() {
 
   const handleMarkAllNotifsRead = async () => {
     try {
-        await fetch(`http://localhost:5000/api/notifications/read-all`, {
-            method: 'PATCH',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+        await api.patch(`/notifications/read-all`);
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (e) {
         console.error(e);
@@ -229,10 +210,7 @@ export default function TransactionsPage() {
 
   const handleDeleteNotif = async (id: string) => {
     try {
-        await fetch(`http://localhost:5000/api/notifications/${id}`, {
-            method: 'DELETE',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+        await api.delete(`/notifications/${id}`);
         setNotifications(prev => prev.filter(n => n.id !== id));
     } catch (e) {
         console.error(e);
@@ -254,8 +232,8 @@ export default function TransactionsPage() {
             <div className="fluid-glass rounded-full px-8 h-20 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
                 <div className="flex items-center gap-6">
                     <Link href="/dashboard" className="flex items-center gap-3 group">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-2 group-hover:rotate-[360deg] transition-all duration-1000 shadow-xl">
-                            <img src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
+                        <div className="w-10 h-10 bg-card rounded-full flex items-center justify-center p-2 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 shadow-xl border border-foreground/5">
+                            <img loading="lazy" src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
                         </div>
                         <div className="hidden md:block">
                             <span className="font-display font-bold text-lg tracking-tight text-foreground uppercase flex flex-col leading-none">
@@ -284,10 +262,8 @@ export default function TransactionsPage() {
                         <button 
                             key={i}
                             onClick={btn.onClick}
-                            className={cn(
-                                "relative p-4 rounded-full hover:bg-foreground/5 transition-all active:scale-90",
-                                btn.variant === 'destructive' ? "text-red-500" : "text-foreground"
-                            )}
+                            className="relative p-4 rounded-full hover:bg-foreground/5 transition-all active:scale-90"
+                            style={{ color: btn.variant === 'destructive' ? '#EF4444' : undefined }}
                         >
                             <btn.icon className="w-6 h-6" />
                             {typeof btn.badge === 'number' && btn.badge > 0 && (
@@ -303,287 +279,473 @@ export default function TransactionsPage() {
 
         <main className="max-w-6xl mx-auto px-6 pt-44 pb-24">
             {/* ───── Page Header ───── */}
-            <header className="mb-24 relative px-4">
+            <header className="mb-12 relative px-4">
                 <div className="flex items-end gap-6 mb-4">
-                    <Sparkles className="w-12 h-12 text-secondary animate-pulse" />
-                    <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase">Activity</h1>
+                    <Sparkles className="w-10 h-10" style={{ color: "#FFD700" }} />
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-none">Activity</h1>
                 </div>
-                <p className="text-[12px] font-bold text-foreground/40 uppercase tracking-[0.4em]">A complete record of your transactions.</p>
-                <div className="absolute -top-12 -right-12 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10" />
+                <p className="text-xs" style={{ color: "#64748B" }}>A complete record of your transactions.</p>
+                <div className="absolute -top-12 -right-12 w-96 h-96" style={{ background: "rgba(255,215,0,0.04)", borderRadius: "50%", filter: "blur(100px)" }} />
             </header>
 
             {/* ───── Search & Filters ───── */}
-            <div className="mb-20 space-y-8 no-print px-4">
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="mb-10 space-y-6 no-print px-4">
+              <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1 relative group">
-                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-foreground/20 group-focus-within:text-primary transition-colors" />
-                <input
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: "#475569" }} />
+                  <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="Search transactions..."
-                    className="w-full bg-white dark:bg-card border-none rounded-[2rem] pl-20 pr-8 py-8 text-lg font-bold placeholder:text-foreground/10 focus:ring-4 focus:ring-primary/10 transition-all shadow-xl shadow-foreground/5"
-                />
+                    className="w-full rounded-2xl pl-14 pr-5 py-4 text-sm outline-none transition-all"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      backdropFilter: "blur(16px)",
+                      color: "#E2E8F0",
+                      caretColor: "#FFD700",
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                  />
                 </div>
                 <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={cn(
-                    "px-10 h-24 rounded-[2rem] flex items-center gap-4 text-xs font-black tracking-[0.2em] transition-all",
-                    (showFilters || hasActiveFilters) 
-                        ? "bg-primary text-white shadow-2xl shadow-primary/30" 
-                        : "bg-white dark:bg-card text-foreground shadow-xl"
-                )}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-6 py-4 rounded-2xl flex items-center gap-3 text-xs font-semibold tracking-wider transition-all active:scale-95"
+                  style={{
+                    background: (showFilters || hasActiveFilters) ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    backdropFilter: "blur(16px)",
+                    color: (showFilters || hasActiveFilters) ? "#FFD700" : "#94A3B8",
+                  }}
+                  onMouseEnter={e => { if (!showFilters && !hasActiveFilters) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={e => { if (!showFilters && !hasActiveFilters) e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                 >
-                <SlidersHorizontal className="w-6 h-6" />
-                Filters
-                {hasActiveFilters && <div className="w-3 h-3 bg-secondary rounded-full animate-pulse" />}
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
+                  {hasActiveFilters && <span className="w-2 h-2 rounded-full" style={{ background: "#FFD700" }} />}
                 </button>
-            </div>
+              </div>
 
-            {/* Filters Panel */}
-            {showFilters && (
-                <div className="p-12 bg-white dark:bg-card rounded-[3rem] shadow-2xl border border-foreground/5 space-y-10 animate-in fade-in zoom-in-95 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-                    <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-4">Type</label>
-                    <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-full bg-secondary/30 rounded-full px-6 py-4 text-xs font-bold uppercase tracking-widest border-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
+              {/* Filters Panel */}
+              {showFilters && (
+                <div
+                  className="rounded-3xl p-8 space-y-8"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    backdropFilter: "blur(16px)",
+                  }}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>Type</label>
+                      <select
+                        value={typeFilter}
+                        onChange={e => setTypeFilter(e.target.value)}
+                        className="w-full rounded-xl px-4 py-3 text-xs font-medium outline-none appearance-none cursor-pointer transition-all"
+                        style={{
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                        }}
+                        onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                      >
                         {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                      </select>
                     </div>
-                    <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-4">Status</label>
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full bg-secondary/30 rounded-full px-6 py-4 text-xs font-bold uppercase tracking-widest border-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>Status</label>
+                      <select
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        className="w-full rounded-xl px-4 py-3 text-xs font-medium outline-none appearance-none cursor-pointer transition-all"
+                        style={{
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                        }}
+                        onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                      >
                         {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                      </select>
                     </div>
-                    <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-4">From Date</label>
-                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full bg-secondary/30 rounded-full px-6 py-4 text-xs font-bold border-none" />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>From Date</label>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
+                        className="w-full rounded-xl px-4 py-3 text-xs font-medium outline-none transition-all"
+                        style={{
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                          colorScheme: "dark",
+                        }}
+                        onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                      />
                     </div>
-                    <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-4">Min Amount</label>
-                    <input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="0.00" className="w-full bg-secondary/30 rounded-full px-6 py-4 text-xs font-bold border-none" />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>Min Amount</label>
+                      <input
+                        type="number"
+                        value={minAmount}
+                        onChange={e => setMinAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full rounded-xl px-4 py-3 text-xs font-medium outline-none transition-all"
+                        style={{
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          color: "#E2E8F0",
+                        }}
+                        onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                      />
                     </div>
-                </div>
-                
-                <div className="flex justify-end pt-6 border-t border-foreground/5">
-                    <button onClick={clearFilters} className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-primary hover:text-foreground transition-colors">
-                    <X className="w-4 h-4" /> Clear all filters
+                  </div>
+                  
+                  <div className="flex justify-end pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                    <button
+                      onClick={clearFilters}
+                      className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider transition-all"
+                      style={{ color: "#FFD700" }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "#E2E8F0"; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "#FFD700"; }}
+                    >
+                      <X className="w-3 h-3" /> Clear all filters
                     </button>
+                  </div>
                 </div>
-                </div>
-            )}
+              )}
 
-            {/* Active Filters */}
-            {hasActiveFilters && (
-                <div className="flex flex-wrap gap-4 px-4">
-                {typeFilter && <FilterPill label={`TYPE: ${TYPE_OPTIONS.find(o => o.value === typeFilter)?.label.toUpperCase()}`} onRemove={() => setTypeFilter("")} />}
-                {statusFilter && <FilterPill label={`STATUS: ${statusFilter.toUpperCase()}`} onRemove={() => setStatusFilter("")} />}
-                {dateFrom && <FilterPill label={`FROM: ${dateFrom}`} onRemove={() => setDateFrom("")} />}
-                {minAmount && <FilterPill label={`MIN: ${minAmount}`} onRemove={() => setMinAmount("")} />}
+              {/* Active Filter Pills */}
+              {hasActiveFilters && (
+                <div className="flex flex-wrap gap-3">
+                  {typeFilter && <FilterPill label={`TYPE: ${TYPE_OPTIONS.find(o => o.value === typeFilter)?.label.toUpperCase()}`} onRemove={() => setTypeFilter("")} />}
+                  {statusFilter && <FilterPill label={`STATUS: ${statusFilter.toUpperCase()}`} onRemove={() => setStatusFilter("")} />}
+                  {dateFrom && <FilterPill label={`FROM: ${dateFrom}`} onRemove={() => setDateFrom("")} />}
+                  {minAmount && <FilterPill label={`MIN: ${minAmount} MAD`} onRemove={() => setMinAmount("")} />}
                 </div>
-            )}
+              )}
             </div>
 
-            {/* ───── Activity Stream ───── */}
-            <div className="space-y-12 relative px-4">
-            <div className="absolute left-12 top-0 bottom-0 w-[1px] bg-gradient-to-b from-primary/20 via-primary/5 to-transparent hidden md:block" />
-
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-40 space-y-6">
-                    <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-foreground/20">Loading activity...</p>
+            {/* ───── Transaction Cards ───── */}
+            <div className="space-y-4 px-4">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-32 space-y-6">
+                  <div className="w-10 h-10 rounded-full border-2 border-transparent" style={{ borderTopColor: "#FFD700", animation: "spin 0.8s linear infinite" }} />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>Loading activity...</p>
                 </div>
-            ) : transactions.length === 0 ? (
-                <div className="text-center py-40 fluid-card bg-foreground/5 dark:bg-card/5 outline-dashed outline-2 outline-foreground/10 outline-offset-[2rem]">
-                <FileText className="w-20 h-20 text-foreground/10 mx-auto mb-10" />
-                <h3 className="text-4xl font-black text-foreground uppercase tracking-tighter">No activity yet</h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/30 mt-4 leading-relaxed max-w-[300px] mx-auto text-center">
+              ) : transactions.length === 0 ? (
+                <div
+                  className="text-center py-24 rounded-3xl"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px dashed rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(16px)",
+                  }}
+                >
+                  <FileText className="w-14 h-14 mx-auto mb-6" style={{ color: "#475569" }} />
+                  <h3 className="text-lg font-semibold mb-2">No activity yet</h3>
+                  <p className="text-xs" style={{ color: "#64748B" }}>
                     Try adjusting your filters to find what you're looking for.
-                </p>
+                  </p>
                 </div>
-            ) : (
+              ) : (
                 transactions.map((t: any) => {
-                const Icon = TYPE_ICONS[t.type] || ArrowRight;
-                const isOutgoing = t.direction === "OUT";
-                const counterparty = isOutgoing
+                  const config = TYPE_CONFIG[t.type] || { icon: ArrowRight, label: "Transaction", color: "#94A3B8" };
+                  const Icon = config.icon;
+                  const isOutgoing = t.direction === "OUT";
+                  const counterparty = isOutgoing
                     ? (t.receiverName || t.receiverEmail || "External Account")
                     : (t.senderName || t.senderEmail || "Internal Account");
 
-                return (
-                    <div 
-                        key={t.id} 
-                        onClick={() => {
-                            setSelectedTxForDetail(t);
-                            setIsDetailModalOpen(true);
-                        }}
-                        className="group relative flex items-start gap-12 md:pl-4 transition-all hover:translate-x-2 cursor-pointer"
-                    >
-                    <div className={cn(
-                        "w-24 h-24 shrink-0 rounded-full flex items-center justify-center shadow-2xl relative z-10 transition-all group-hover:scale-110",
-                        t.status === 'FAILED' ? "bg-red-500 text-white shadow-red-500/20" :
-                        t.status === 'PENDING' ? "bg-amber-500 text-white shadow-amber-500/20" :
-                        isOutgoing ? "bg-primary text-white shadow-primary/20" : "bg-secondary text-primary shadow-secondary/20"
-                    )}>
-                        <Icon className="w-10 h-10" />
-                    </div>
+                  const amountNum = parseFloat(t.amount);
+                  const amountColor = t.status === 'FAILED' ? '#EF4444' : isOutgoing ? '#E2E8F0' : '#22C55E';
+                  const statusColor = t.status === 'COMPLETED' ? '#22C55E' : t.status === 'PENDING' ? '#FFD700' : '#EF4444';
 
-                    <div className="flex-1 pt-4 space-y-3">
-                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40">
-                                        {(() => {
-                                            const d = new Date(t.created_at || t.createdAt);
-                                            return isNaN(d.getTime()) ? 'Date Unknown' : d.toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' });
-                                        })()} • {t.status}
-                                    </p>
-                                    {t.status === 'FAILED' && <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />}
-                                </div>
-                                <h5 className="text-3xl font-black uppercase tracking-tight text-foreground transition-colors group-hover:text-primary">
-                                    {t.type === 'QR_PAYMENT' ? 'Payment' :
-                                    isOutgoing ? `Sent to ${counterparty}` : `Received from ${counterparty}`}
-                                </h5>
-                            </div>
-                            <div className="text-left lg:text-right shrink-0">
-                                <p className={cn("text-5xl font-black tracking-tighter leading-none mb-1", isOutgoing ? "text-foreground" : "text-primary")}>
-                                {isOutgoing ? "-" : "+"}{parseFloat(t.amount).toFixed(2)}
-                                </p>
-                                <p className="text-[12px] font-bold text-foreground/20 italic uppercase tracking-widest">{t.currency || "MAD"}</p>
-                            </div>
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => {
+                        setSelectedTxForDetail(t);
+                        setIsDetailModalOpen(true);
+                      }}
+                      className="relative rounded-3xl p-5 transition-all cursor-pointer active:scale-[0.99]"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        backdropFilter: "blur(16px)",
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                      }}
+                    >
+                      {/* Gold accent line */}
+                      <div className="absolute top-0 left-8 right-8 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, #FFD700, transparent)" }} />
+
+                      <div className="flex items-center gap-4">
+                        {/* Icon */}
+                        <div
+                          className="w-12 h-12 shrink-0 rounded-xl flex items-center justify-center"
+                          style={{ background: `${config.color}15` }}
+                        >
+                          <Icon className="w-5 h-5" style={{ color: config.color }} />
                         </div>
-                        
-                        <div className="flex flex-wrap items-center gap-6">
-                            {t.note && (
-                                <div className="px-6 py-3 bg-foreground/5 rounded-2xl inline-block max-w-lg">
-                                    <p className="text-[11px] font-medium text-foreground/60 italic leading-relaxed tracking-widest">"{t.note}"</p>
-                                </div>
-                            )}
-                            <button 
-                                onClick={() => handleReport(t)}
-                                className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500/40 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-sm font-medium truncate">
+                              {t.status === 'FAILED' ? "Failed " : ""}{config.label}
+                              {!t.type?.startsWith('DEPOSIT') && !t.type?.startsWith('WITHDRAWAL') && t.type !== 'REQUEST' ? ` — ${counterparty}` : ""}
+                            </span>
+                            <span
+                              className="shrink-0 px-2.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider"
+                              style={{
+                                background: `${statusColor}15`,
+                                color: statusColor,
+                              }}
                             >
-                                Report an issue
-                            </button>
+                              {t.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs" style={{ color: "#475569" }}>
+                            <span>
+                              {(() => {
+                                const d = new Date(t.created_at || t.createdAt);
+                                return isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                              })()}
+                            </span>
+                            {t.note && (
+                              <>
+                                <span style={{ color: "rgba(255,255,255,0.08)" }}>|</span>
+                                <span className="truncate max-w-[200px]" style={{ color: "#64748B" }}>{t.note}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Amount */}
+                        <div className="text-right shrink-0">
+                          <p className="text-base font-semibold tabular-nums" style={{ color: amountColor }}>
+                            {isOutgoing ? "-" : "+"}{parseFloat(t.amount).toFixed(2)}
+                          </p>
+                          <p className="text-[10px] font-medium" style={{ color: "#64748B" }}>{t.currency || "MAD"}</p>
+                        </div>
+
+                        {/* Report button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleReport(t); }}
+                          className="shrink-0 p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-white/5"
+                          style={{ color: "#EF444480" }}
+                          onMouseEnter={e => { e.currentTarget.style.color = "#EF4444"; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = "#EF444480"; }}
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    </div>
-                );
+                  );
                 })
-            )}
+              )}
             </div>
 
             {/* ───── Pagination ───── */}
             {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-6 pt-24 no-print">
+              <div className="flex items-center justify-center gap-4 pt-10 no-print">
                 <button
-                onClick={() => { setPage(Math.max(1, page - 1)); fetchTransactions(Math.max(1, page - 1)); }}
-                disabled={page <= 1}
-                className="w-16 h-16 rounded-full bg-white dark:bg-card shadow-lg flex items-center justify-center disabled:opacity-20 hover:bg-primary hover:text-white transition-all active:scale-90"
+                  onClick={() => { setPage(Math.max(1, page - 1)); fetchTransactions(Math.max(1, page - 1)); }}
+                  disabled={page <= 1}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    backdropFilter: "blur(16px)",
+                    color: "#94A3B8",
+                  }}
+                  onMouseEnter={e => { if (page > 1) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                 >
-                <ChevronLeft className="w-6 h-6" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
                 
-                <div className="flex items-center gap-3">
-                    {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                        const p = page <= 2 ? i + 1 : page === totalPages ? totalPages - 2 + i : page - 1 + i;
-                        if (p <= 0 || p > totalPages) return null;
-                        return (
-                            <button
-                                key={p}
-                                onClick={() => { setPage(p); fetchTransactions(p); }}
-                                className={cn(
-                                    "w-14 h-14 rounded-full font-black text-xs transition-all",
-                                    p === page ? "bg-primary text-white shadow-xl shadow-primary/30" : "bg-white dark:bg-card text-foreground hover:bg-secondary"
-                                )}
-                            >
-                                {p}
-                            </button>
-                        );
-                    })}
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                    const p = page <= 2 ? i + 1 : page === totalPages ? totalPages - 2 + i : page - 1 + i;
+                    if (p <= 0 || p > totalPages) return null;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => { setPage(p); fetchTransactions(p); }}
+                        className="w-12 h-12 rounded-xl text-xs font-semibold transition-all active:scale-90"
+                        style={
+                          p === page
+                            ? { background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700" }
+                            : { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", color: "#94A3B8" }
+                        }
+                        onMouseEnter={e => {
+                          if (p !== page) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                        }}
+                        onMouseLeave={e => {
+                          if (p !== page) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                        }}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <button
-                onClick={() => { setPage(Math.min(totalPages, page + 1)); fetchTransactions(Math.min(totalPages, page + 1)); }}
-                disabled={page >= totalPages}
-                className="w-16 h-16 rounded-full bg-white dark:bg-card shadow-lg flex items-center justify-center disabled:opacity-20 hover:bg-primary hover:text-white transition-all active:scale-90"
+                  onClick={() => { setPage(Math.min(totalPages, page + 1)); fetchTransactions(Math.min(totalPages, page + 1)); }}
+                  disabled={page >= totalPages}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    backdropFilter: "blur(16px)",
+                    color: "#94A3B8",
+                  }}
+                  onMouseEnter={e => { if (page < totalPages) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                 >
-                <ChevronRight className="w-6 h-6" />
+                  <ChevronRight className="w-5 h-5" />
                 </button>
-            </div>
+              </div>
             )}
 
             {/* ───── Issue Modal ───── */}
             {showDisputeModal && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in duration-500">
-                <div className="absolute inset-0 bg-background/60 backdrop-blur-2xl" onClick={() => setShowDisputeModal(false)} />
-                <div className="relative w-full max-w-2xl bg-white dark:bg-card rounded-[4rem] shadow-[0_50px_100px_rgba(0,0,0,0.2)] dark:shadow-[0_50px_100px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-12 duration-700">
-                <div className="p-16">
-                    <div className="flex justify-between items-start mb-16">
-                    <div className="flex items-center gap-8">
-                        <div className="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-xl shadow-red-500/20">
-                        <AlertTriangle className="w-10 h-10 text-white" />
-                        </div>
-                        <div>
-                        <h2 className="text-5xl font-black text-foreground uppercase tracking-tighter leading-none">Report Issue</h2>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/30 mt-3">Tell us what happened</p>
-                        </div>
-                    </div>
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+                <div
+                  className="absolute inset-0"
+                  style={{ background: "rgba(10,14,26,0.7)", backdropFilter: "blur(8px)" }}
+                  onClick={() => setShowDisputeModal(false)}
+                />
+                <div
+                  className="relative w-full max-w-lg rounded-3xl overflow-hidden"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    backdropFilter: "blur(16px)",
+                    boxShadow: "0 24px 80px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  {/* Gold accent */}
+                  <div className="h-[1px]" style={{ background: "linear-gradient(90deg, transparent, #FFD700, transparent)" }} />
+                  
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div
+                        className="w-12 h-12 shrink-0 rounded-xl flex items-center justify-center"
+                        style={{ background: "rgba(239,68,68,0.12)" }}
+                      >
+                        <AlertTriangle className="w-6 h-6" style={{ color: "#EF4444" }} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold">Report Issue</h2>
+                        <p className="text-xs" style={{ color: "#64748B" }}>Tell us what happened</p>
+                      </div>
                     </div>
 
-                    <div className="space-y-10">
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-6">What's the issue?</label>
-                        <select 
-                        value={disputeReason}
-                        onChange={e => setDisputeReason(e.target.value)}
-                        className="w-full bg-secondary/30 rounded-full px-8 py-5 text-xs font-bold uppercase tracking-widest border-none appearance-none cursor-pointer focus:ring-4 focus:ring-primary/10"
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>What's the issue?</label>
+                        <select
+                          value={disputeReason}
+                          onChange={e => setDisputeReason(e.target.value)}
+                          className="w-full rounded-xl px-4 py-3.5 text-xs font-medium outline-none transition-all appearance-none cursor-pointer"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            color: "#E2E8F0",
+                          }}
+                          onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                          onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
                         >
-                        <option value="">Select a reason...</option>
-                        <option value="UNAUTHORIZED">Unauthorized transaction</option>
-                        <option value="INCORRECT_AMOUNT">Incorrect amount</option>
-                        <option value="SERVICE_NOT_RECEIVED">Service not received</option>
-                        <option value="DUPLICATE">Duplicate transaction</option>
-                        <option value="OTHER">Other issue</option>
+                          <option value="">Select a reason...</option>
+                          <option value="UNAUTHORIZED">Unauthorized transaction</option>
+                          <option value="INCORRECT_AMOUNT">Incorrect amount</option>
+                          <option value="SERVICE_NOT_RECEIVED">Service not received</option>
+                          <option value="DUPLICATE">Duplicate transaction</option>
+                          <option value="OTHER">Other issue</option>
                         </select>
-                    </div>
+                      </div>
 
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/30 ml-6">Additional details</label>
-                        <textarea 
-                        value={disputeDesc}
-                        onChange={e => setDisputeDesc(e.target.value)}
-                        placeholder="Please describe the problem..."
-                        className="w-full bg-secondary/30 rounded-[2rem] px-8 py-8 text-xs font-bold border-none h-48 placeholder:text-foreground/10 focus:ring-4 focus:ring-primary/10"
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>Additional details</label>
+                        <textarea
+                          value={disputeDesc}
+                          onChange={e => setDisputeDesc(e.target.value)}
+                          placeholder="Please describe the problem..."
+                          className="w-full rounded-xl px-4 py-3.5 text-xs font-medium outline-none transition-all resize-none h-32"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            color: "#E2E8F0",
+                          }}
+                          onFocus={e => { e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; }}
+                          onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
                         />
-                    </div>
+                      </div>
 
-                    <div className="pt-10 flex flex-col sm:flex-row gap-6">
-                        <button 
-                        onClick={() => setShowDisputeModal(false)}
-                        className="flex-1 py-6 bg-foreground/5 text-foreground rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-foreground hover:text-background transition-all"
+                      <div className="flex flex-col sm:flex-row gap-3 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <button
+                          onClick={() => setShowDisputeModal(false)}
+                          className="flex-1 py-3.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            color: "#64748B",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                         >
-                        Cancel
+                          Cancel
                         </button>
-                        <button 
-                        onClick={submitDispute}
-                        disabled={!disputeReason || submittingDispute}
-                        className="flex-1 py-6 bg-red-600 text-white rounded-full font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-500/20 disabled:opacity-20 flex items-center justify-center gap-3"
+                        <button
+                          onClick={submitDispute}
+                          disabled={!disputeReason || submittingDispute}
+                          className="flex-1 py-3.5 rounded-xl text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-30"
+                          style={{
+                            background: "linear-gradient(135deg, #FFD700, #FFE135)",
+                            color: "#0A0E1A",
+                            cursor: (!disputeReason || submittingDispute) ? "not-allowed" : "pointer",
+                          }}
+                          onMouseEnter={e => {
+                            if (disputeReason && !submittingDispute) {
+                              e.currentTarget.style.background = "linear-gradient(135deg, #FFE135, #FFD700)";
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = "linear-gradient(135deg, #FFD700, #FFE135)";
+                          }}
                         >
-                        {submittingDispute ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert className="w-5 h-5" />}
-                        Submit Report
+                          {submittingDispute ? <Loader2 className="w-4 h-4" style={{ animation: "spin 0.8s linear infinite" }} /> : <ShieldAlert className="w-4 h-4" />}
+                          Submit Report
                         </button>
+                      </div>
                     </div>
-                    </div>
+                  </div>
                 </div>
-                </div>
-            </div>
+              </div>
             )}
 
             <div className="h-20" />
         </main>
       </div>
 
-      <NotificationTray 
+      <NotificationTray
         isOpen={isNotificationTrayOpen}
         onClose={() => setIsNotificationTrayOpen(false)}
         notifications={notifications}
@@ -592,7 +754,7 @@ export default function TransactionsPage() {
         onDelete={handleDeleteNotif}
       />
 
-      <TransactionDetailModal 
+      <TransactionDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         transaction={selectedTxForDetail}
@@ -603,9 +765,24 @@ export default function TransactionsPage() {
 
 function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.2em] bg-white dark:bg-card rounded-full px-6 py-3 shadow-md border border-foreground/5">
+    <span
+      className="flex items-center gap-3 text-[9px] font-semibold uppercase tracking-wider rounded-xl px-4 py-2"
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        color: "#94A3B8",
+      }}
+    >
       {label}
-      <button onClick={onRemove} className="hover:text-primary transition-all border-l border-foreground/10 pl-3 ml-1 text-foreground/30"><X className="w-4 h-4" /></button>
+      <button
+        onClick={onRemove}
+        className="transition-all"
+        style={{ color: "#475569" }}
+        onMouseEnter={e => { e.currentTarget.style.color = "#FFD700"; }}
+        onMouseLeave={e => { e.currentTarget.style.color = "#475569"; }}
+      >
+        <X className="w-3 h-3" />
+      </button>
     </span>
   );
 }

@@ -221,11 +221,47 @@ const removeFaceAuth = async (req, res) => {
     }
 };
 
+/**
+ * Toggle Two-Factor Authentication
+ */
+const toggle2FA = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { enabled } = req.body;
+
+        if (typeof enabled !== 'boolean') {
+            return res.status(400).json({ error: 'enabled must be a boolean' });
+        }
+
+        await db.query('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [enabled, userId]);
+
+        await logAudit(req, enabled ? 'TWO_FACTOR_ENABLED' : 'TWO_FACTOR_DISABLED', 'user', null, {
+            userId,
+            timestamp: new Date().toISOString()
+        });
+
+        await notificationController.createNotification(
+            userId,
+            'SECURITY',
+            enabled ? '2FA Enabled' : '2FA Disabled',
+            enabled
+                ? 'Two-factor authentication has been activated on your account.'
+                : 'Two-factor authentication has been deactivated on your account.'
+        );
+
+        res.json({ twoFactorEnabled: enabled });
+    } catch (err) {
+        console.error('Toggle 2FA error:', err);
+        res.status(500).json({ error: 'Server error toggling 2FA' });
+    }
+};
+
 module.exports = {
     updateProfile,
     changePassword,
     getSessions,
     logoutAllDevices,
     getFaceAuthStatus,
-    removeFaceAuth
+    removeFaceAuth,
+    toggle2FA
 };

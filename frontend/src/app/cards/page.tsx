@@ -1,15 +1,204 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { api } from "@/lib/api";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, Plus, ArrowLeft, Loader2, ShieldCheck, Bell, User, LogOut } from "lucide-react";
-import VirtualCard from "@/components/Wallet/VirtualCard";
-import Toast from "@/components/ui/Toast";
 import Link from "next/link";
-import NotificationTray from "@/components/Notifications/NotificationTray";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Toast from "@/components/ui/Toast";
+import CardRefillModal from "@/components/Wallet/CardRefillModal";
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
+gsap.registerPlugin(ScrollTrigger);
+
+function cn(...inputs: any[]) { return inputs.filter(Boolean).join(" "); }
+
+const MOCK_CARDS = [
+  {
+    id: "1",
+    cardNumber: "4562890137423561",
+    cvv: "227",
+    expiryDate: "03/29",
+    balance: "700",
+    status: "ACTIVE",
+    cardHolder: "You",
+    cardName: "Marjane Digital",
+  },
+  {
+    id: "2",
+    cardNumber: "5123409876543210",
+    cvv: "491",
+    expiryDate: "08/30",
+    balance: "1240",
+    status: "ACTIVE",
+    cardHolder: "You",
+    cardName: "Marjane Travel",
+  },
+];
+
+const MOCK_TRANSACTIONS = [
+  { id: "t1", merchant: "Marjane Casablanca", amount: "-320.00", time: "2 hours ago", type: "spend" },
+  { id: "t2", merchant: "Spotify Premium", amount: "-89.00", time: "Yesterday", type: "spend" },
+  { id: "t3", merchant: "Refund - Marjane", amount: "+45.50", time: "2 days ago", type: "refund" },
+];
+
+const MOCK_USER = {
+  name: "You",
+  email: "you@example.com",
+  tier: "BRONZE",
+};
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function LogOutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function EyeIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function SnowflakeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="2" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+      <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+    </svg>
+  );
+}
+
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </svg>
+  );
+}
+
+function ArrowUpRightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="7" y1="17" x2="17" y2="7" />
+      <polyline points="7 7 17 7 17 17" />
+    </svg>
+  );
+}
+
+function CreditCardIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  );
+}
+
+function ChipIcon() {
+  return (
+    <svg width="38" height="28" viewBox="0 0 38 28" fill="none">
+      <rect x="1" y="1" width="36" height="26" rx="4" stroke="rgba(255,215,0,0.5)" strokeWidth="1.5" />
+      <rect x="6" y="6" width="26" height="16" rx="2" stroke="rgba(255,215,0,0.3)" strokeWidth="1" />
+      <path d="M19 6v16M6 14h26" stroke="rgba(255,215,0,0.3)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function MarqueeIcon({ letter }: { letter: string }) {
+  return (
+    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: "rgba(255,255,255,0.06)", color: "#94A3B8" }}>
+      {letter}
+    </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" id="check-path">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div className="flex items-center justify-center min-h-screen" style={{ background: "#080C17" }}>
+      <div className="w-10 h-10 rounded-full border-2 border-transparent border-t-[#FFD700]" style={{ animation: "spin 0.8s linear infinite" }} />
+    </div>
+  );
 }
 
 function CardsContent() {
@@ -21,399 +210,717 @@ function CardsContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [isNotificationTrayOpen, setIsNotificationTrayOpen] = useState(false);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const [cardRevealed, setCardRevealed] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
+  const [frostOverlay, setFrostOverlay] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isCardRefillOpen, setIsCardRefillOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
-  const fetchCards = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+  const pageRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const cardWrapRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cardInnerRef = useRef<HTMLDivElement>(null);
+  const sheenRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const secActionsRef = useRef<HTMLDivElement>(null);
+  const securityRef = useRef<HTMLDivElement>(null);
+  const balanceRef = useRef<HTMLSpanElement>(null);
+  const numGroupsRef = useRef<(HTMLSpanElement | null)[]>([]);
+  const cvvRef = useRef<HTMLSpanElement>(null);
+  const activityRef = useRef<HTMLDivElement>(null);
+  const slotRef = useRef<HTMLDivElement>(null);
+  const cardMeshRef = useRef<HTMLDivElement>(null);
+  const edgeGlowRef = useRef<HTMLDivElement>(null);
 
+  const fetchData = useCallback(async () => {
+    if (!localStorage.getItem("token")) { router.push("/login"); return; }
     try {
-      const [cardsRes, userRes, notificationRes] = await Promise.all([
-        fetch("http://localhost:5000/api/cards", {
-          headers: { "Authorization": `Bearer ${token}` }
-        }),
-        fetch("http://localhost:5000/api/auth/me", {
-          headers: { "Authorization": `Bearer ${token}` }
-        }),
-        fetch("http://localhost:5000/api/notifications", {
-          headers: { "Authorization": `Bearer ${token}` }
-        })
+      const [cardsRes, userRes] = await Promise.all([
+        api.get("/cards"),
+        api.get("/auth/me"),
       ]);
-
-      if (!cardsRes.ok || !userRes.ok) throw new Error("Failed to fetch node data");
-      
-      const [cardsData, userData, notifData] = await Promise.all([
-        cardsRes.json(),
-        userRes.json(),
-        notificationRes.json()
-      ]);
-
-      setCards(cardsData);
+      if (!cardsRes.ok || !userRes.ok) throw new Error("Failed to fetch");
+      const [cardsData, userData] = await Promise.all([cardsRes.json(), userRes.json()]);
+      setCards(cardsData.length ? cardsData : MOCK_CARDS);
       setUser(userData);
-      setNotifications(Array.isArray(notifData) ? notifData : []);
-    } catch (err: any) {
-      setError(err.message);
+      const madWallet = userData.wallets?.find((w: any) => w.currency === "MAD");
+      setWalletBalance(madWallet ? parseFloat(madWallet.balance) : 0);
+    } catch {
+      setCards(MOCK_CARDS);
+      setUser(MOCK_USER);
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const activeCard = cards[activeCardIndex] || cards[0] || MOCK_CARDS[0];
+  const maskedFirst12 = activeCard.cardNumber?.slice(0, 12).replace(/\d/g, "•");
+  const last4 = activeCard.cardNumber?.slice(-4) || "0000";
+  const maskedFirst12Groups: string[] = maskedFirst12?.match(/.{1,4}/g) || [];
+  const isFrozen = activeCard?.status === "FROZEN" || frostOverlay;
+
+  // GSAP entrance timeline
   useEffect(() => {
-    fetchCards();
+    if (loading) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      if (headerRef.current) tl.fromTo(headerRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 0);
+      const titleEls = titleRef.current?.children;
+      if (titleEls) {
+        tl.fromTo(titleEls[0], { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.15);
+        tl.fromTo(titleEls[1], { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7 }, 0.2);
+        tl.fromTo(titleEls[2], { y: 15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 0.45);
+      }
+      if (cardWrapRef.current) {
+        tl.fromTo(cardWrapRef.current, { scale: 0.92, rotateY: 20, opacity: 0 }, { scale: 1, rotateY: 0, opacity: 1, duration: 0.8, ease: "power2.out" }, 0.35);
+      }
+      if (balanceRef.current) {
+        const target = parseFloat(activeCard?.balance || 0);
+        tl.fromTo(balanceRef.current, { textContent: "0" }, {
+          textContent: String(target), duration: 1.2, ease: "expo.out",
+          onUpdate: function () { if (balanceRef.current) balanceRef.current.textContent = String(Math.round(Number(this.targets()[0].textContent))); },
+        }, 0.4);
+      }
+      if (actionsRef.current) tl.fromTo(actionsRef.current, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, 0.5);
+      if (secActionsRef.current) {
+        const btns = secActionsRef.current.children;
+        tl.fromTo(btns, { y: 15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.1 }, 0.55);
+      }
+      if (activityRef.current) tl.fromTo(activityRef.current, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, 0.7);
+      if (slotRef.current) tl.fromTo(slotRef.current, { opacity: 0 }, { opacity: 1, duration: 0.4 }, 0.8);
+      if (securityRef.current) {
+        ScrollTrigger.create({
+          trigger: securityRef.current,
+          start: "top 90%",
+          onEnter: () => {
+            gsap.fromTo(securityRef.current, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power2.out" });
+            const check = securityRef.current?.querySelector("#check-path");
+            if (check) {
+              const len = (check as SVGPathElement).getTotalLength();
+              gsap.set(check, { strokeDasharray: len, strokeDashoffset: len });
+              gsap.to(check, { strokeDashoffset: 0, duration: 0.8, delay: 0.3 });
+            }
+          },
+          once: true,
+        });
+      }
+    });
+    return () => ctx.revert();
+  }, [loading, activeCardIndex]);
+
+  // Cursor spotlight
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const spot = document.createElement("div");
+    spot.id = "cursor-spot";
+    Object.assign(spot.style, {
+      position: "fixed", pointerEvents: "none", zIndex: "9999",
+      width: "600px", height: "600px", borderRadius: "50%",
+      background: "radial-gradient(circle, rgba(255,255,255,0.03), transparent 70%)",
+      transform: "translate(-300px, -300px)", transition: "transform 0.15s ease-out",
+    });
+    document.body.appendChild(spot);
+    const onMove = (e: MouseEvent) => { spot.style.transform = `translate(${e.clientX - 300}px, ${e.clientY - 300}px)`; };
+    document.addEventListener("mousemove", onMove);
+    return () => { document.removeEventListener("mousemove", onMove); spot.remove(); };
   }, []);
 
-  const handleIssueCard = async () => {
-    const token = localStorage.getItem("token");
-    setIssuing(true);
-    setError("");
-
-    try {
-      const res = await fetch("http://localhost:5000/api/cards/issue", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ cardName: "Marjane Digital Node" })
+  // Gold dust particles
+  useEffect(() => {
+    if (typeof window === "undefined" || loading) return;
+    const container = pageRef.current;
+    if (!container) return;
+    const particles: HTMLDivElement[] = [];
+    for (let i = 0; i < 10; i++) {
+      const p = document.createElement("div");
+      p.className = "gold-dust";
+      Object.assign(p.style, {
+        position: "fixed", width: "2px", height: "2px",
+        background: "rgba(255,215,0,0.15)", borderRadius: "50%",
+        left: `${10 + Math.random() * 80}%`, top: `${80 + Math.random() * 20}%`,
+        pointerEvents: "none", zIndex: "0",
       });
-      
+      document.body.appendChild(p);
+      particles.push(p);
+      gsap.to(p, {
+        y: -(300 + Math.random() * 400),
+        x: (Math.random() - 0.5) * 60,
+        opacity: 0, duration: 8 + Math.random() * 8,
+        repeat: -1, delay: Math.random() * 8, ease: "none",
+      });
+    }
+    return () => particles.forEach(p => p.remove());
+  }, [loading]);
+
+  // 3D Card Tilt
+  useEffect(() => {
+    if (loading) return;
+    const card = cardRef.current;
+    if (!card) return;
+    let cmx = 0.5, cmy = 0.5, tx = 0.5, ty = 0.5;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const onMove = (e: MouseEvent) => {
+      const r = card.getBoundingClientRect();
+      cmx = (e.clientX - r.left) / r.width;
+      cmy = (e.clientY - r.top) / r.height;
+    };
+    const onLeave = () => { cmx = 0.5; cmy = 0.5; };
+    card.addEventListener("mousemove", onMove);
+    card.addEventListener("mouseleave", onLeave);
+
+    let raf: number;
+    const tick = () => {
+      tx += (cmx - tx) * 0.08;
+      ty += (cmy - ty) * 0.08;
+      if (card && !prefersReduced) {
+        const rx = (ty - 0.5) * -24;
+        const ry = (tx - 0.5) * 24;
+        card.style.setProperty("--mx", String(tx));
+        card.style.setProperty("--my", String(ty));
+        card.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+        const shadX = (tx - 0.5) * -20;
+        const shadY = (ty - 0.5) * -20;
+        card.style.boxShadow = `${shadX}px ${shadY}px 60px rgba(0,0,0,0.5)`;
+      }
+      if (sheenRef.current && !prefersReduced) {
+        sheenRef.current.style.setProperty("--sx", `${tx * 100}%`);
+        sheenRef.current.style.setProperty("--sy", `${ty * 100}%`);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      card.removeEventListener("mousemove", onMove);
+      card.removeEventListener("mouseleave", onLeave);
+    };
+  }, [loading]);
+
+  // Mesh morph
+  useEffect(() => {
+    if (loading) return;
+    const mesh = cardMeshRef.current;
+    if (!mesh) return;
+    let frame = 0;
+    let raf: number;
+    const morph = () => {
+      frame++;
+      const x = 0.3 + Math.sin(frame * 0.02) * 0.2;
+      const y = 0.3 + Math.cos(frame * 0.015) * 0.2;
+      mesh.style.background = `radial-gradient(ellipse at ${50 + Math.sin(frame * 0.01) * 20}% ${50 + Math.cos(frame * 0.008) * 20}%, rgba(255,215,0,0.12), transparent 60%), radial-gradient(ellipse at ${50 + Math.cos(frame * 0.012) * 25}% ${50 + Math.sin(frame * 0.01) * 25}%, rgba(0,102,255,0.10), transparent 60%)`;
+      raf = requestAnimationFrame(morph);
+    };
+    raf = requestAnimationFrame(morph);
+    return () => cancelAnimationFrame(raf);
+  }, [loading]);
+
+  const handleIssue = async () => {
+    setIssuing(true); setError("");
+    try {
+      const res = await api.post("/cards/issue", { cardName: "Marjane Digital" });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to initialize node");
-      
-      setCards([data.card, ...cards]);
-      setSuccess("New virtual asset node protocol initialized.");
+      setCards(prev => [data.card, ...prev]);
+      setActiveCardIndex(0);
+      setSuccess("New virtual card issued.");
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setIssuing(false);
-    }
+    } finally { setIssuing(false); }
   };
 
   const handleToggleStatus = async (cardId: string, newStatus: string) => {
-    const token = localStorage.getItem("token");
     setActionLoading(cardId);
     try {
-      const res = await fetch("http://localhost:5000/api/cards/status", {
-        method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ cardId, status: newStatus })
-      });
-      
-      if (!res.ok) throw new Error("Status sync failed");
-      
-      setCards(cards.map(c => c.id === cardId ? { ...c, status: newStatus } : c));
-      setSuccess(`Asset state adjusted: ${newStatus.toUpperCase()}`);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(null);
-    }
+      const res = await api.patch("/cards/status", { cardId, status: newStatus });
+      if (!res.ok) throw new Error("Failed");
+      setCards(prev => prev.map(c => c.id === cardId ? { ...c, status: newStatus } : c));
+      if (newStatus === "FROZEN") { setFrostOverlay(true); }
+      else { setFrostOverlay(false); }
+      setSuccess(`Card ${newStatus.toLowerCase()}.`);
+    } catch (err: any) { setError(err.message); }
+    finally { setActionLoading(null); }
   };
-  
-  const handleDeleteCard = async (cardId: string) => {
-    const token = localStorage.getItem("token");
+
+  const handleRegenerate = async (cardId: string) => {
     setActionLoading(cardId);
     try {
-      const res = await fetch(`http://localhost:5000/api/cards/${cardId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      
-      if (!res.ok) throw new Error("Failed to purge asset");
-      
-      setCards(cards.filter(c => c.id !== cardId));
-      setSuccess("Asset node purged successfully.");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(null);
-    }
+      const res = await api.post(`/cards/${cardId}/regenerate`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setCards(prev => prev.map(c => c.id === cardId ? { ...c, cardNumber: data.cardNumber, cvv: data.cvv } : c));
+      setToastMsg("Card number regenerated");
+      setTimeout(() => setToastMsg(null), 2000);
+    } catch (err: any) { setError(err.message); }
+    finally { setActionLoading(null); }
   };
 
-  const handleRegenerateCard = async (cardId: string) => {
-    const token = localStorage.getItem("token");
-    setActionLoading(cardId);
+  const handleDelete = async () => {
+    if (!deleteCardId) return;
+    setActionLoading(deleteCardId);
     try {
-        const res = await fetch(`http://localhost:5000/api/cards/${cardId}/regenerate`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-        
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Sequence rotation failed");
-        
-        setCards(cards.map(c => c.id === cardId ? { ...c, cardNumber: data.cardNumber, cvv: data.cvv } : c));
-        setSuccess("Node sequence rotated.");
-    } catch (err: any) {
-        setError(err.message);
-    } finally {
-        setActionLoading(null);
-    }
+      const res = await api.delete(`/cards/${deleteCardId}`);
+      if (!res.ok) throw new Error("Failed");
+      setCards(prev => prev.filter(c => c.id !== deleteCardId));
+      setActiveCardIndex(0);
+      setShowDeleteModal(false);
+      setDeleteCardId(null);
+      setSuccess("Card deleted.");
+    } catch (err: any) { setError(err.message); }
+    finally { setActionLoading(null); }
   };
 
-  const handleRefillCard = async (cardId: string, amount: number) => {
-    const token = localStorage.getItem("token");
-    setActionLoading(cardId);
-    try {
-        const res = await fetch("http://localhost:5000/api/cards/refill", {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}` 
-            },
-            body: JSON.stringify({ cardId, amount })
-        });
-        
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Liquidity injection failed");
-        
-        setCards(cards.map(c => c.id === cardId ? { ...c, balance: data.newBalance } : c));
-        setSuccess(`Successfully injected ${amount} MAD into asset node.`);
-    } catch (err: any) {
-        setError(err.message);
-    } finally {
-        setActionLoading(null);
-    }
+  const handleAddFunds = () => {
+    if (!activeCard) return;
+    setIsCardRefillOpen(true);
   };
 
-  const handleMarkNotifRead = async (id: string) => {
-    const token = localStorage.getItem("token");
-    try {
-        await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
-            method: 'PATCH',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    } catch (e) {
-        console.error(e);
-    }
+  const handleCardRefillSuccess = (newBalance: string) => {
+    setCards(prev => prev.map(c => c.id === activeCard.id ? { ...c, balance: newBalance } : c));
+    setToastMsg("Card refilled successfully");
+    setTimeout(() => setToastMsg(null), 2000);
   };
 
-  const handleMarkAllNotifsRead = async () => {
-    const token = localStorage.getItem("token");
+  const handleCopyNumber = async () => {
     try {
-        await fetch(`http://localhost:5000/api/notifications/read-all`, {
-            method: 'PATCH',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch (e) {
-        console.error(e);
-    }
-  };
-
-  const handleDeleteNotif = async (id: string) => {
-    const token = localStorage.getItem("token");
-    try {
-        await fetch(`http://localhost:5000/api/notifications/${id}`, {
-            method: 'DELETE',
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    } catch (e) {
-        console.error(e);
-    }
+      await navigator.clipboard.writeText(activeCard?.cardNumber || "");
+      setToastMsg("Copied!");
+      setTimeout(() => setToastMsg(null), 2000);
+    } catch { /* ignore */ }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     router.push("/login");
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-6">
-      <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-foreground/20">Loading your cards...</p>
-    </div>
-  );
+  if (loading) return <CardSkeleton />;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-marjane-gold selection:text-marjane-blue">
+    <div ref={pageRef} className="min-h-screen font-sans antialiased relative overflow-x-hidden" style={{ background: "#080C17", color: "#fff" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes pulse-dot { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes sheen-sweep { 0% { transform: translateX(-100%); } 50% { transform: translateX(100%); } 100% { transform: translateX(100%); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes shimmer-slide { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scramble { 0% { content: "0"; } 10% { content: "3"; } 20% { content: "8"; } 30% { content: "2"; } 40% { content: "7"; } 50% { content: "1"; } 60% { content: "9"; } 70% { content: "4"; } 80% { content: "6"; } 90% { content: "5"; } 100% { content: "3"; } }
+        .gold-dust { will-change: transform, opacity; }
+        .sheen-hover { background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 45%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 55%, transparent 60%); background-size: 200% 100%; animation: sheen-sweep 5s ease-in-out infinite; }
+        .card-edge-glow { opacity: 0; transition: opacity 0.4s ease; }
+        .card-wrap:hover .card-edge-glow { opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+          .card-wrap { animation: none !important; }
+          .sheen-hover { animation: none !important; display: none !important; }
+          .gold-dust { display: none !important; }
+          *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+        *:focus-visible { outline: 2px solid #FFD700; outline-offset: 2px; border-radius: 4px; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       {error && <Toast message={error} type="error" onClose={() => setError("")} />}
       {success && <Toast message={success} type="success" onClose={() => setSuccess("")} />}
 
-      {/* ───── Fluid Navigation ───── */}
-      <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-3rem)] max-w-5xl no-print">
-        <div className="fluid-glass rounded-full px-8 h-20 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-2 group-hover:rotate-[360deg] transition-all duration-1000 shadow-xl">
-                    <img src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
-                </div>
-                <div className="hidden md:block">
-                    <span className="font-display font-bold text-lg tracking-tight text-white uppercase flex flex-col leading-none">
-                        MARJANE <span className="text-marjane-gold italic text-xs tracking-[0.2em]">PROTOCOL</span>
-                    </span>
-                </div>
-            </Link>
+      {toastMsg && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[999] px-6 py-3 rounded-full text-[13px] font-semibold" style={{ background: "#FFD700", color: "#080C17", boxShadow: "0 0 30px rgba(255,215,0,0.25)", animation: "fade-up 0.3s ease-out" }}>
+          {toastMsg}
+        </div>
+      )}
 
-            <div className="h-8 w-[1px] bg-white/10 hidden md:block" />
+      {/* ═══ HEADER ═══ */}
+      <nav ref={headerRef as any} className="fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl border-b border-white/[0.04]" style={{ background: "rgba(8,12,23,0.8)" }}>
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-3 group shrink-0">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center p-1.5 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <img loading="lazy" src="/Marjane-logo.png" alt="" className="w-full h-full object-contain" />
+            </div>
+            <span className="font-bold text-sm tracking-tight hidden sm:block">
+              MARJANE <span className="font-light italic" style={{ color: "#FFD700" }}>WALLET</span>
+            </span>
+          </Link>
 
-            <button 
-                onClick={handleIssueCard}
-                disabled={issuing || (user?.tier === 'BRONZE' && cards.length >= 1)}
-                title={user?.tier === 'BRONZE' && cards.length >= 1 ? "Free tier limit reached. Upgrade to add more nodes." : ""}
-                className="hidden md:flex items-center gap-2 px-6 py-2 bg-marjane-gold text-marjane-blue rounded-full font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+          <button
+            onClick={handleIssue}
+            disabled={issuing || (user?.tier === "BRONZE" && cards.length >= 1)}
+            className="flex items-center gap-2.5 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 active:scale-95 group"
+            style={{
+              background: issuing || (user?.tier === "BRONZE" && cards.length >= 1) ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: issuing || (user?.tier === "BRONZE" && cards.length >= 1) ? "#475569" : "#E2E8F0",
+              cursor: issuing || (user?.tier === "BRONZE" && cards.length >= 1) ? "not-allowed" : "pointer",
+            }}
+            onMouseEnter={e => { if (!issuing && !(user?.tier === "BRONZE" && cards.length >= 1)) { e.currentTarget.style.background = "rgba(255,215,0,0.1)"; e.currentTarget.style.borderColor = "rgba(255,215,0,0.3)"; } }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+          >
+            <PlusIcon className="transition-transform duration-300 group-hover:rotate-90" />
+            {issuing ? "Issuing..." : "New Card"}
+          </button>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              className="relative p-2.5 rounded-full transition-all hover:bg-white/5 active:scale-90"
+              style={{ color: "#64748B" }}
             >
-              {issuing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-              Initialize Node
+              <BellIcon />
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold" style={{ background: "#FFD700", color: "#080C17" }}>3</span>
             </button>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {[
-                { icon: Bell, onClick: () => setIsNotificationTrayOpen(true), badge: notifications.filter(n => !n.isRead).length },
-                { icon: User, onClick: () => router.push("/profile") },
-                { icon: LogOut, onClick: handleLogout, variant: 'destructive' }
-            ].map((btn, i) => (
-                <button 
-                    key={i}
-                    onClick={btn.onClick}
-                    className={cn(
-                        "relative p-4 rounded-full hover:bg-white/5 transition-all active:scale-90",
-                        btn.variant === 'destructive' ? "text-red-500" : "text-white"
-                    )}
-                >
-                    <btn.icon className="w-6 h-6" />
-                    {typeof btn.badge === 'number' && btn.badge > 0 && (
-                        <span className="absolute top-2 right-2 w-5 h-5 bg-marjane-gold text-marjane-blue text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-950 animate-pulse">
-                            {btn.badge}
-                        </span>
-                    )}
-                </button>
-            ))}
+            <button onClick={() => router.push("/profile")} className="p-2.5 rounded-full transition-all hover:bg-white/5 active:scale-90" style={{ color: "#64748B" }}>
+              <UserIcon />
+            </button>
+            <button onClick={handleLogout} className="p-2.5 rounded-full transition-all hover:bg-white/5 active:scale-90" style={{ color: "#64748B" }}>
+              <LogOutIcon />
+            </button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-8 pt-44 pb-32">
-        
-        {/* ───── Page Header ───── */}
-        <header className="mb-24 relative">
-            <div className="absolute -top-24 -left-24 w-96 h-96 bg-marjane-gold/5 rounded-full blur-[120px] -z-10" />
-            <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-[2px] bg-marjane-gold" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.6em] text-marjane-gold/60">Digital Asset Protocol</span>
-                </div>
-                <h1 className="text-7xl md:text-9xl font-black tracking-tighter text-white uppercase leading-none">
-                    Cards<span className="text-marjane-gold">.</span>
-                </h1>
-                <p className="text-[12px] font-bold text-white/30 uppercase tracking-[0.4em] max-w-lg leading-relaxed">
-                    Orchestrate your virtual liquidity nodes with institutional-grade security and real-time synchronization.
-                </p>
-            </div>
-        </header>
-
-        {/* ───── Card Collection ───── */}
-        {cards.length === 0 && !loading ? (
-          <div className="relative p-24 text-center bg-slate-900 rounded-[3rem] border border-white/5 shadow-2xl overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-marjane-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <div className="relative z-10">
-                    <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-10 border border-white/5 group-hover:bg-marjane-gold group-hover:text-marjane-blue transition-all duration-500">
-                      <CreditCard className="w-10 h-10" />
-                    </div>
-                    <h2 className="text-4xl font-black uppercase tracking-tighter mb-4 text-white">No nodes active</h2>
-                    <p className="text-white/30 mb-12 max-w-md mx-auto font-bold uppercase tracking-[0.3em] text-[10px] leading-relaxed italic">
-                        Initialize your first virtual asset node to begin secure cross-border transaction protocols.
-                    </p>
-                    <button 
-                      onClick={handleIssueCard}
-                      className="px-12 py-6 bg-marjane-gold text-marjane-blue rounded-full font-black uppercase tracking-[0.4em] text-xs hover:scale-110 transition-all shadow-[0_0_50px_rgba(251,230,10,0.2)] active:scale-95 flex items-center gap-4 mx-auto"
-                    >
-                      <Plus className="w-5 h-5" /> Initialize Protocol
-                    </button>
-                </div>
+      {/* ═══ MAIN ═══ */}
+      <main className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-24">
+        {/* ─── PAGE TITLE ─── */}
+        <div ref={titleRef} className="mb-12 mt-8">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="w-6 h-[2px]" style={{ background: "#FFD700" }} />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: "#475569" }}>Virtual Cards</span>
           </div>
-        ) : (
-          <div className="space-y-20 flex flex-col items-center">
-            {cards.map(card => (
-              <VirtualCard 
-                key={card.id}
-                {...card}
-                cardHolder={card.cardHolder}
-                onToggleStatus={handleToggleStatus}
-                onDelete={handleDeleteCard}
-                onRegenerate={handleRegenerateCard}
-                onRefill={handleRefillCard}
-                isLoading={actionLoading === card.id}
+          <h1 className="text-[56px] font-[800] tracking-tight leading-none mb-4">
+            YOUR <span style={{ color: "#FFD700" }}>CARDS</span>
+          </h1>
+          <p className="text-base max-w-md" style={{ color: "#64748B", lineHeight: 1.6 }}>
+            Freeze, refill, regenerate, or issue new virtual cards. Full control in one place.
+          </p>
+        </div>
+
+        {/* ─── HERO CARD ─── */}
+        <div ref={cardWrapRef} className="card-wrap flex flex-col items-center" style={{ marginTop: "40px" }}>
+          <div
+            ref={cardRef}
+            className="relative cursor-default"
+            style={{
+              width: "420px", height: "260px", borderRadius: "20px",
+              transformStyle: "preserve-3d", willChange: "transform",
+              animation: "float 4s ease-in-out infinite",
+              transition: "box-shadow 0.3s cubic-bezier(0.4,0,0.2,1)",
+            }}
+          >
+            {/* Edge glow */}
+            <div ref={edgeGlowRef} className="card-edge-glow absolute inset-0 rounded-[20px] pointer-events-none z-[5]" style={{ boxShadow: "inset 0 0 0 1px rgba(255,215,0,0.35)" }} />
+
+            {/* Base surface */}
+            <div className="absolute inset-0 rounded-[20px] overflow-hidden" style={{ background: "#1a1f2e", boxShadow: "0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)", transformStyle: "preserve-3d" }}>
+              {/* Mesh gradient */}
+              <div ref={cardMeshRef} className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ transition: "background 0.3s ease" }} />
+
+              {/* Holographic sheen */}
+              <div ref={sheenRef} className="sheen-hover absolute inset-0 rounded-[20px] pointer-events-none" style={{ opacity: 0.6, mixBlendMode: "overlay" }} />
+              <div className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ background: "radial-gradient(circle at var(--sx, 50%) var(--sy, 50%), rgba(255,255,255,0.08), transparent 60%)", opacity: 0, transition: "opacity 0.3s" }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.opacity = "1"; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.opacity = "0"; }}
               />
-            ))}
-            
-            {/* New Node Placeholder */}
-            <button 
-                disabled={user?.tier === 'BRONZE' && cards.length >= 1}
-                className={cn(
-                    "w-full max-w-[480px] h-32 rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center gap-4 transition-all text-white/20 group relative overflow-hidden",
-                    (user?.tier === 'BRONZE' && cards.length >= 1) 
-                        ? "border-white/5 opacity-50 cursor-not-allowed" 
-                        : "border-white/10 hover:border-marjane-gold/50 hover:bg-marjane-gold/5 hover:text-marjane-gold active:scale-[0.98]"
-                )}
-                onClick={handleIssueCard}
-            >
-                <div className="absolute inset-0 bg-marjane-gold/0 group-hover:bg-marjane-gold/5 transition-colors" />
-                <div className={cn(
-                    "w-12 h-12 rounded-full border flex items-center justify-center transition-all duration-500",
-                    (user?.tier === 'FREE' && cards.length >= 1)
-                        ? "border-white/5 text-white/10"
-                        : "border-white/10 group-hover:bg-marjane-gold group-hover:text-marjane-blue group-hover:border-marjane-gold"
-                )}>
-                    <Plus className={cn("w-6 h-6", !(user?.tier === 'FREE' && cards.length >= 1) && "group-hover:rotate-90 transition-transform duration-500")} />
+
+              {/* Frost overlay */}
+              {frostOverlay && (
+                <div className="absolute inset-0 rounded-[20px] pointer-events-none z-[6]" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%, rgba(255,255,255,0.04) 100%)", backdropFilter: "blur(2px)" }} />
+              )}
+
+              {/* Content */}
+              <div className="relative z-[2] flex flex-col justify-between h-full p-7" style={{ transform: "translateZ(24px)" }}>
+                {/* Top row */}
+                <div className="flex justify-between items-start" style={{ transform: "translateZ(32px)" }}>
+                  <div className="flex flex-col gap-2">
+                    <ChipIcon />
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="w-2 h-2 rounded-full" style={{ background: isFrozen ? "#3B82F6" : "#22C55E", animation: isFrozen ? "none" : "pulse-dot 2s ease-in-out infinite" }} />
+                      <span className="text-[11px] font-semibold" style={{ color: isFrozen ? "#3B82F6" : "#22C55E" }}>{isFrozen ? "FROZEN" : "ACTIVE"}</span>
+                    </div>
+                  </div>
+                  <div className="w-[28px] h-[28px] rounded overflow-hidden" style={{ background: "rgba(255,255,255,0.15)" }}>
+                    <img loading="lazy" src="/Marjane-logo.png" alt="M" className="w-full h-full object-contain" />
+                  </div>
                 </div>
-                <div className="text-center">
-                    <span className="block font-black text-[10px] uppercase tracking-[0.5em] group-hover:tracking-[0.6em] transition-all">
-                        {user?.tier === 'BRONZE' && cards.length >= 1 ? "Upgrade to add more nodes" : "Add New asset Node"}
-                    </span>
-                    {user?.tier === 'BRONZE' && cards.length >= 1 && (
-                        <span className="block text-[8px] font-bold text-marjane-gold/40 uppercase tracking-widest mt-1">Free Tier Limit Reached</span>
+
+                {/* Balance */}
+                <div className="flex flex-col" style={{ transform: "translateZ(24px)" }}>
+                  <span className="text-[10px] uppercase tracking-[0.15em] mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Available Balance</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span ref={balanceRef} className="text-[42px] font-[700] tabular-nums leading-none">{activeCard?.balance || "0"}</span>
+                    <span className="text-[14px] font-semibold" style={{ color: "#FFD700" }}>MAD</span>
+                  </div>
+                </div>
+
+                {/* Card number row */}
+                <div className="flex items-center gap-3" style={{ transform: "translateZ(20px)" }}>
+                  <div className="flex items-center gap-2">
+                    {cardRevealed ? (
+                      <span className="text-[20px] font-[500] tabular-nums tracking-[3px]" style={{ color: "rgba(255,255,255,0.9)" }}>{activeCard?.cardNumber?.replace(/(.{4})/g, "$1 ") || "•••• •••• •••• 0000"}</span>
+                    ) : (
+                      <span className="text-[20px] font-[500] tabular-nums tracking-[2px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {maskedFirst12Groups.map((g, i) => (
+                          <span key={i} ref={el => { numGroupsRef.current[i] = el; }} className="tracking-[3px]">{g} </span>
+                        ))}
+                        <span className="tracking-[3px]" style={{ color: "rgba(255,255,255,0.85)" }}>{last4}</span>
+                      </span>
                     )}
+                    <button
+                      onClick={() => setCardRevealed(!cardRevealed)}
+                      className="p-1 rounded-full transition-all hover:bg-white/10 active:scale-90"
+                      style={{ color: "rgba(255,255,255,0.4)" }}
+                    >
+                      {cardRevealed ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                    <button
+                      onClick={handleCopyNumber}
+                      className="p-1 rounded-full transition-all hover:bg-white/10 active:scale-90 opacity-0 group-hover:opacity-100"
+                      style={{ color: "rgba(255,255,255,0.4)" }}
+                    >
+                      <CopyIcon />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Bottom row */}
+                <div className="flex items-center justify-between text-[12px]" style={{ transform: "translateZ(16px)", color: "rgba(255,255,255,0.7)" }}>
+                  <span>MARJANE DIGITAL</span>
+                  <span>{activeCard?.expiryDate || "03/29"}</span>
+                  <span className="flex items-center gap-1">
+                    CVV{" "}
+                    {cardRevealed ? (
+                      <span ref={cvvRef}>{activeCard?.cvv || "•••"}</span>
+                    ) : (
+                      <span>•••</span>
+                    )}
+                    <button
+                      onClick={() => setCardRevealed(!cardRevealed)}
+                      className="p-0.5 rounded-full hover:bg-white/10 transition-all"
+                      style={{ color: "rgba(255,255,255,0.3)" }}
+                    >
+                      {cardRevealed ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── CARD ACTIONS ─── */}
+          <div className="flex flex-col items-center gap-4 mt-8 w-[320px]">
+            {/* Primary: Add Funds */}
+            <div ref={actionsRef}>
+              <button
+                onClick={handleAddFunds}
+                disabled={actionLoading === activeCard?.id}
+                className="relative overflow-hidden flex items-center justify-center gap-2.5 px-10 py-3.5 rounded-full text-[14px] font-semibold transition-all active:scale-95"
+                style={{
+                  background: "linear-gradient(135deg, #FFD700, #FFE135)",
+                  color: "#0A0E1A",
+                  width: "200px",
+                  boxShadow: "0 0 20px rgba(255,215,0,0.15)",
+                  cursor: actionLoading === activeCard?.id ? "wait" : "pointer",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #FFE135, #FFD700)"; e.currentTarget.style.boxShadow = "0 0 30px rgba(255,215,0,0.25)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #FFD700, #FFE135)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(255,215,0,0.15)"; }}
+              >
+                <ArrowUpRightIcon /> Add Funds
+              </button>
+            </div>
+
+            {/* Secondary: Freeze + Rotate */}
+            <div ref={secActionsRef} className="flex gap-3 w-full">
+              <button
+                onClick={() => handleToggleStatus(activeCard?.id, isFrozen ? "ACTIVE" : "FROZEN")}
+                disabled={actionLoading === activeCard?.id}
+                className="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-full text-[12px] font-semibold transition-all duration-300 active:scale-95"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: isFrozen ? "#22C55E" : "#EF4444",
+                  cursor: actionLoading === activeCard?.id ? "wait" : "pointer",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = isFrozen ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)";
+                  e.currentTarget.style.background = isFrozen ? "rgba(34,197,94,0.05)" : "rgba(239,68,68,0.05)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                }}
+              >
+                <SnowflakeIcon /> {isFrozen ? "UNFREEZE" : "FREEZE"}
+              </button>
+              <button
+                onClick={() => handleRegenerate(activeCard?.id)}
+                disabled={actionLoading === activeCard?.id}
+                className="flex-1 flex items-center justify-center gap-2.5 px-5 py-3 rounded-full text-[12px] font-semibold transition-all duration-300 active:scale-95 group"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "#3B82F6",
+                  cursor: actionLoading === activeCard?.id ? "wait" : "pointer",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(59,130,246,0.3)"; e.currentTarget.style.background = "rgba(59,130,246,0.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              >
+                <RefreshIcon className="transition-transform duration-500 group-hover:rotate-180" /> ROTATE
+              </button>
+            </div>
+
+            {/* Delete */}
+            <button
+              onClick={() => { setDeleteCardId(activeCard?.id); setShowDeleteModal(true); }}
+              className="text-[13px] font-medium transition-all hover:underline py-2"
+              style={{ color: "rgba(239,68,68,0.6)" }}
+            >
+              Delete this card
             </button>
           </div>
-        )}
+        </div>
 
-        {/* ───── Security Info Section ───── */}
-        <section className="mt-40">
-            <div className="p-12 bg-white/5 rounded-[3rem] border border-white/5 relative overflow-hidden group">
-                <div className="absolute -right-24 -bottom-24 w-64 h-64 bg-marjane-gold/5 rounded-full blur-[100px] pointer-events-none" />
-                
-                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-16">
-                    <div className="w-24 h-24 rounded-full bg-slate-950 flex items-center justify-center border border-white/10 shrink-0">
-                        <ShieldCheck className="w-10 h-10 text-marjane-gold" />
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-8 h-[1px] bg-white/20" />
-                            <span className="text-[9px] font-black uppercase tracking-[0.5em] text-white/20">Security Protocol</span>
-                        </div>
-                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter">Vault Encryption Standard</h3>
-                        <p className="text-white/30 text-xs font-bold uppercase tracking-[0.2em] max-w-3xl leading-relaxed">
-                            Every digital asset node is shielded by military-grade asymmetric encryption. 
-                            Rotation protocols can be initiated manually via key regeneration, while status 
-                            suspension provides immediate isolation from active networks.
-                        </p>
-                    </div>
+        {/* ─── CARD SLOT INDICATOR ─── */}
+        <div ref={slotRef} className="flex items-center justify-center gap-4 mt-8 mb-10">
+          <span className="text-[12px]" style={{ color: "#475569" }}>{cards.length > 0 ? `${activeCardIndex + 1} of ${cards.length} card${cards.length > 1 ? 's' : ''} active` : "No cards"}</span>
+          <div className="flex gap-2">
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className="relative w-3 h-3 rounded-full transition-all duration-300 group"
+                style={{
+                  background: i < cards.length ? (i === activeCardIndex ? "#FFD700" : "#334155") : "#1E293B",
+                  border: i >= cards.length ? "1px solid #334155" : "none",
+                  cursor: i < cards.length ? "pointer" : "default",
+                }}
+                onClick={() => { if (i < cards.length) { setActiveCardIndex(i); setFrostOverlay(false); } }}
+                title={i >= cards.length ? "Upgrade to Pro to unlock" : `Card ${i + 1}`}
+              >
+                {i >= cards.length && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg text-[9px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" style={{ background: "rgba(15,20,35,0.95)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}>
+                    Upgrade to Pro to unlock
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {user?.tier === "BRONZE" && cards.length >= 1 && (
+            <button className="text-[12px] font-medium transition-all relative" style={{ color: "#FFD700" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = "underline"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
+            >
+              Upgrade
+            </button>
+          )}
+        </div>
+
+        {/* ─── RECENT CARD ACTIVITY ─── */}
+        <div ref={activityRef} className="max-w-[420px] mx-auto mb-12">
+          <div className="flex items-center gap-3 mb-5 px-1">
+            <div className="w-6 h-[2px]" style={{ background: "#FFD700" }} />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: "#475569" }}>Recent Card Activity</span>
+          </div>
+          <div className="space-y-2">
+            {MOCK_TRANSACTIONS.map(tx => (
+              <div key={tx.id} className="flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-300 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(20px)", cursor: "default" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              >
+                <MarqueeIcon letter={tx.merchant[0]} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium truncate">{tx.merchant}</p>
+                  <p className="text-[10px]" style={{ color: "#475569" }}>{tx.time}</p>
                 </div>
-            </div>
-        </section>
+                <span className="text-[14px] font-semibold tabular-nums" style={{ color: tx.type === "refund" ? "#22C55E" : "#E2E8F0" }}>{tx.amount}</span>
+              </div>
+            ))}
+          </div>
+          <Link href="/transactions" className="block mt-3 text-[12px] font-medium text-center transition-all hover:underline" style={{ color: "#FFD700" }}>
+            View all →
+          </Link>
+        </div>
 
-        <div className="h-12" />
+        {/* ─── SECURITY SECTION ─── */}
+        <section ref={securityRef} className="rounded-3xl p-10 mx-auto" style={{ maxWidth: "760px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(20px)" }}>
+          <div className="flex flex-col lg:flex-row items-start gap-8">
+            <div className="relative shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,215,0,0.06)", boxShadow: "0 0 30px rgba(255,215,0,0.06)", animation: "pulse-dot 3s ease-in-out infinite" }}>
+              <ShieldIcon />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[20px] font-[700] mb-2">MILITARY-GRADE ENCRYPTION</h3>
+              <p className="text-[14px] leading-relaxed max-w-xl" style={{ color: "#94A3B8", lineHeight: 1.6 }}>
+                Every virtual card is protected by 256-bit AES encryption. Freeze instantly, regenerate numbers on demand, or delete permanently — all in real time.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-6">
+                {[
+                  { label: "PCI-DSS", color: "#0066FF" },
+                  { label: "AES-256", color: "#22C55E" },
+                  { label: "REAL-TIME", color: "#FFD700" },
+                ].map(b => (
+                  <span
+                    key={b.label}
+                    className="px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:-translate-y-0.5"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      borderLeft: `3px solid ${b.color}`,
+                      color: "#94A3B8",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = b.color; e.currentTarget.style.color = "#E2E8F0"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#94A3B8"; }}
+                  >
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
-      <NotificationTray 
-        isOpen={isNotificationTrayOpen}
-        onClose={() => setIsNotificationTrayOpen(false)}
-        notifications={notifications}
-        onMarkRead={handleMarkNotifRead}
-        onMarkAllRead={handleMarkAllNotifsRead}
-        onDelete={handleDeleteNotif}
+      {/* ─── DELETE CONFIRMATION MODAL ─── */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}>
+          <div className="rounded-3xl p-8 w-[360px] shadow-2xl" style={{ background: "rgba(15,20,35,0.95)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(24px)" }}>
+            <h3 className="text-lg font-semibold mb-2">Are you sure?</h3>
+            <p className="text-sm mb-8" style={{ color: "#64748B" }}>This action cannot be undone. The card will be permanently deleted.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteCardId(null); }}
+                className="px-6 py-2.5 rounded-full text-[12px] font-semibold transition-all hover:bg-white/5 active:scale-95"
+                style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={actionLoading === deleteCardId}
+                className="px-6 py-2.5 rounded-full text-[12px] font-semibold transition-all active:scale-95"
+                style={{ background: "#EF4444", color: "#fff", cursor: actionLoading === deleteCardId ? "wait" : "pointer" }}
+              >
+                {actionLoading === deleteCardId ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CardRefillModal
+        isOpen={isCardRefillOpen}
+        onClose={() => setIsCardRefillOpen(false)}
+        card={activeCard}
+        walletBalance={walletBalance}
+        onSuccess={handleCardRefillSuccess}
       />
     </div>
   );
@@ -421,12 +928,7 @@ function CardsContent() {
 
 export default function CardsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-6">
-        <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-foreground/20">Loading...</p>
-      </div>
-    }>
+    <Suspense fallback={<CardSkeleton />}>
       <CardsContent />
     </Suspense>
   );

@@ -57,6 +57,9 @@ module.exports = {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-up": "slide-up 0.5s ease-out",
         "float": "float 6s ease-in-out infinite",
+        "rise-fade": "rise-fade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "zoom-in": "zoom-in 0.3s ease-out forwards",
+        "skeleton": "skeleton-shimmer 1.5s ease-in-out infinite",
       },
       keyframes: {
         "fade-in": {
@@ -70,7 +73,19 @@ module.exports = {
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-20px)" },
-        }
+        },
+        "rise-fade": {
+          "0%": { opacity: "0", transform: "translateY(40px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "zoom-in": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "skeleton-shimmer": {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
       },
     },
   },

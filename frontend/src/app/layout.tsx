@@ -13,12 +13,13 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Marjane Digital Wallet",
+  title: "Marjane Wallet",
   description: "Secure and easy digital payments",
 };
 
 import LoadingBar from "@/components/ui/LoadingBar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -27,13 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable} scroll-smooth`}>
+    <html lang="en" className={`${inter.variable} ${outfit.variable} scroll-smooth dark`}>
       <body className="font-sans antialiased text-foreground bg-background">
         <ThemeProvider>
-          <Suspense fallback={null}>
-            <LoadingBar />
-          </Suspense>
-          {children}
+          <ToastProvider>
+            <Suspense fallback={null}>
+              <LoadingBar />
+            </Suspense>
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

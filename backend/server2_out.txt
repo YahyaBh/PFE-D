@@ -1,0 +1,36 @@
+Server is running on port 5000
+Auto-migration: wallet_limits table ready.
+Auto-migration: KYC tables ready.
+--- DATABASE SELF-HEALING: SUCCESS (Ledger, Disputes & Merchant Systems Active) ---
+DB Alignment: User & Audit table schema verified.
+[0mGET /api/health [32m200[0m 4.080 ms - 54[0m
+[0mGET /api/health [32m200[0m 6.040 ms - 54[0m
+MFA Update result: {"fieldCount":0,"affectedRows":1,"insertId":0,"info":"Rows matched: 1  Changed: 1  Warnings: 0","serverStatus":2,"warningStatus":0,"changedRows":1}
+[EMAIL SIMULATION] To: yahyabouhsine@protonmail.com | Subject: MFA Code | Body: EC46OX
+[0mPOST /api/auth/login [32m200[0m 122.598 ms - 2801[0m
+MFA Update result: {"fieldCount":0,"affectedRows":1,"insertId":0,"info":"Rows matched: 1  Changed: 1  Warnings: 0","serverStatus":2,"warningStatus":0,"changedRows":1}
+[EMAIL SIMULATION] To: yahyabouhsine@protonmail.com | Subject: MFA Code | Body: 05XKZH
+[0mPOST /api/auth/login [32m200[0m 107.494 ms - 2801[0m
+[0mGET /api/auth/user/59a1cb04-7996-4f5b-a487-46705f7ba886/face-descriptor [36m304[0m 3.503 ms - -[0m
+[0mGET /api/auth/user/59a1cb04-7996-4f5b-a487-46705f7ba886/face-descriptor [36m304[0m 1.943 ms - -[0m
+[0mPOST /api/auth/register [31m500[0m 72.991 ms - 44[0m
+[0mPOST /api/auth/login [33m400[0m 17.057 ms - 31[0m
+--- VERIFICATION CODES SENT ---
+Email (e2e-1780965950200@test.com): CPIX49
+Phone (+2126965950200): 7S10XU
+-------------------------------
+[AUDIT] USER_REGISTERED logged for user bd9138cf-45c6-4086-8e59-473b3a56cb75
+[0mPOST /api/auth/register [32m201[0m 83.937 ms - 150[0m
+MFA Update result: {"fieldCount":0,"affectedRows":1,"insertId":0,"info":"Rows matched: 1  Changed: 1  Warnings: 0","serverStatus":2,"warningStatus":0,"changedRows":1}
+[EMAIL SIMULATION] To: e2e-1780965950200@test.com | Subject: MFA Code | Body: 9PPCJY
+[0mPOST /api/auth/login [32m200[0m 93.162 ms - 163[0m
+[AUDIT] LOGIN_SUCCESS logged for user bd9138cf-45c6-4086-8e59-473b3a56cb75
+[0mPOST /api/auth/verify-mfa [32m200[0m 90.696 ms - 514[0m
+[0mGET /api/auth/me [32m200[0m 11.372 ms - 482[0m
+[0mGET /api/transactions/recent [32m200[0m 7.254 ms - 2[0m
+[0mGET /api/transactions/requests [32m200[0m 4.663 ms - 2[0m
+[0mGET /api/cards [32m200[0m 3.601 ms - 2[0m
+[0mGET /api/notifications [32m200[0m 4.442 ms - 2[0m
+[0mGET /api/dashboard/stats [32m200[0m 6.871 ms - 146[0m
+[0mGET /api/wallet [32m200[0m 2.999 ms - 221[0m
+[0mGET /api/transactions/history [32m200[0m 6.287 ms - 53[0m

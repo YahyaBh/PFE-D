@@ -1,51 +1,34 @@
-const rateLimit = {};
+const rateLimit = require('express-rate-limit');
 
 /**
- * Basic in-memory rate limiter per user
- * @param {string} keyPrefix Unique key for the action (e.g., 'transfer')
- * @param {number} limit Max attempts
- * @param {number} windowMs Time window in milliseconds
+ * General API Limiter: 100 requests per 15 minutes
  */
-const createRateLimiter = (keyPrefix, limit, windowMs) => {
-    return (req, res, next) => {
-        const userId = req.user.id;
-        const key = `${keyPrefix}:${userId}`;
-        const now = Date.now();
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { 
+        error: 'Too many requests from this IP. Please try again after 15 minutes.',
+        code: 'TOO_MANY_REQUESTS'
+    }
+});
 
-        if (!rateLimit[key]) {
-            rateLimit[key] = {
-                hits: 1,
-                resetTime: now + windowMs
-            };
-            return next();
-        }
-
-        const data = rateLimit[key];
-
-        if (now > data.resetTime) {
-            data.hits = 1;
-            data.resetTime = now + windowMs;
-            return next();
-        }
-
-        data.hits++;
-
-        if (data.hits > limit) {
-            const retryAfter = Math.ceil((data.resetTime - now) / 1000 / 60);
-            return res.status(429).json({ 
-                error: `Rate control: Too many ${keyPrefix} attempts. Please try again in ${retryAfter} minutes.`,
-                code: 'RATE_LIMIT_EXCEEDED'
-            });
-        }
-
-        next();
-    };
-};
-
-// Default sensitive action limiter: 5 attempts per 15 mins
-const sensitiveLimiter = createRateLimiter('sensitive_action', 5, 15 * 60 * 1000);
+/**
+ * Sensitive Authentication Limiter: 10 attempts per 30 minutes
+ */
+const sensitiveLimiter = rateLimit({
+    windowMs: 30 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { 
+        error: 'Security alert: Too many sensitive attempts. Please try again after 30 minutes.',
+        code: 'AUTH_RATE_LIMIT_EXCEEDED'
+    }
+});
 
 module.exports = {
-    createRateLimiter,
+    apiLimiter,
     sensitiveLimiter
 };

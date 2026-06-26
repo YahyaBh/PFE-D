@@ -1,64 +1,66 @@
 import Link from "next/link";
-import { ShieldCheck, Twitter, Github, Linkedin, Mail } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-card pt-24 pb-12 border-t border-border">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-          <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30">
-                <ShieldCheck className="w-6 h-6 text-primary" />
-              </div>
-              <span className="font-display font-black text-xl tracking-tighter text-foreground font-display">
-                MARJANE <span className="text-primary italic">WALLET</span>
-              </span>
-            </Link>
-            <p className="text-muted-foreground max-w-sm leading-relaxed mb-8 font-sans">
-              The ultimate digital financial companion for Marjane customers. 
-              Secure, fast, and rewards-backed payments for every day.
-            </p>
-            <div className="flex gap-4">
-              {[Twitter, Github, Linkedin, Mail].map((Icon, i) => (
-                <a key={i} href="#" className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-primary transition-colors hover:text-white text-muted-foreground">
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-foreground font-bold mb-6 font-display">Platform</h4>
-            <ul className="space-y-4">
-              {["Digital Cards", "P2P Transfers", "NFC Payments", "Loyalty Rewards"].map((link) => (
-                <li key={link}>
-                  <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-sans">{link}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-foreground font-bold mb-6 font-display">Company</h4>
-            <ul className="space-y-4">
-              {["About Marjane", "Security First", "Terms of Service", "Privacy Policy"].map((link) => (
-                <li key={link}>
-                  <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors text-sm font-sans">{link}</Link>
-                </li>
-              ))}
-            </ul>
+    <footer className="footer-dark" style={{ padding: "80px 24px 32px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
+      <div className="footer-grid" style={{ marginBottom: "48px" }}>
+        {/* Brand */}
+        <div className="footer-brand-col">
+          <Link href="/" style={{ fontSize: "20px", fontWeight: 700, color: "#fff", textDecoration: "none", letterSpacing: "-.5px", display: "flex", alignItems: "center", gap: "8px" }}>
+            MARJANE <span style={{ color: "#FFD700", fontWeight: 400, fontStyle: "italic" }}>WALLET</span>
+          </Link>
+          <p style={{ color: "#94A3B8", fontSize: "14px", lineHeight: 1.6, marginTop: "16px", maxWidth: "300px" }}>
+            Morocco&apos;s most advanced digital wallet. Secure, instant, and built for everyday life.
+          </p>
+          <div className="footer-social" style={{ marginTop: "20px" }}>
+            {["X", "in", "ig", "fb"].map((s) => (
+              <a key={s} href="#">{s}</a>
+            ))}
           </div>
         </div>
 
-        <div className="pt-12 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-muted-foreground/60 text-[10px] tracking-wider uppercase font-semibold font-display">
-            © 2026 MARJANE HOLDING. ALL RIGHTS RESERVED.
-          </p>
-          <div className="flex gap-8">
-            <button className="text-[9px] font-bold text-muted-foreground/50 hover:text-foreground transition-colors tracking-[0.2em] uppercase font-display">Status: Operational</button>
-            <button className="text-[9px] font-bold text-muted-foreground/50 hover:text-foreground transition-colors tracking-[0.2em] uppercase font-display">Global v1.0.4</button>
+        {/* Platform */}
+        <div className="footer-col">
+          <h5>Platform</h5>
+          {["Features", "Pricing", "Security", "API"].map((l) => (
+            <Link key={l} href="#">{l}</Link>
+          ))}
+        </div>
+
+        {/* Company */}
+        <div className="footer-col">
+          <h5>Company</h5>
+          {["About", "Careers", "Press", "Blog"].map((l) => (
+            <Link key={l} href="#">{l}</Link>
+          ))}
+        </div>
+
+        {/* Legal + Payments */}
+        <div className="footer-col">
+          <h5>Legal</h5>
+          {["Terms of Service", "Privacy Policy", "GDPR"].map((l) => (
+            <Link key={l} href="#">{l}</Link>
+          ))}
+          <div className="footer-pay-logos" style={{ marginTop: "20px", marginBottom: "16px" }}>
+            {["VISA", "MC", "CIH", "CMI"].map((l) => (
+              <span key={l}>{l}</span>
+            ))}
           </div>
+          <div className="currency-tags">
+            {["MAD", "EUR", "USD", "GBP"].map((c) => (
+              <span key={c} className="currency-tag">{c}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "24px", borderTop: "1px solid rgba(255,255,255,.05)", fontSize: "13px", color: "#64748B" }}>
+        <span>&copy; 2026 Marjane Wallet. All rights reserved.</span>
+        <div style={{ display: "flex", gap: "16px" }}>
+          {["Status", "Support", "Contact"].map((l) => (
+            <Link key={l} href="#" style={{ color: "#64748B", textDecoration: "none", transition: "color .3s" }}>{l}</Link>
+          ))}
         </div>
       </div>
     </footer>

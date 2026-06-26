@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Shield, Fingerprint, ScanFace, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Fingerprint, ScanFace, Loader2 } from "lucide-react";
 
 interface BiometricOverlayProps {
   type: "face" | "fingerprint";
@@ -11,13 +11,18 @@ interface BiometricOverlayProps {
 export default function BiometricOverlay({ type, onComplete }: BiometricOverlayProps) {
   const [status, setStatus] = useState<"scanning" | "success" | "error">("scanning");
 
-  useState(() => {
-    const timer = setTimeout(() => {
+  useEffect(() => {
+    const timer1 = setTimeout(() => {
       setStatus("success");
-      setTimeout(onComplete, 1000);
     }, 2500);
-    return () => clearTimeout(timer);
-  });
+    const timer2 = setTimeout(() => {
+      onComplete();
+    }, 3500);
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [onComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md transition-all duration-500">

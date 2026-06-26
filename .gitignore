@@ -1,2 +1,13 @@
 /frontend/.next
 /frontend/node_modules
+/backend/node_modules
+.env
+.env.local
+.env.example
+*.log
+backend/test_resend_mfa.js
+backend/diag_users.js
+backend/diag_users_simple.js
+backend/server_out.txt
+backend/server_err.txt
+frontend/tsconfig.tsbuildinfo

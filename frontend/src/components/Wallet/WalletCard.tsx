@@ -14,16 +14,18 @@ interface WalletCardProps {
   balance: number;
   currency: string;
   cardNumber?: string;
+  expiryDate?: string;
+  cvv?: string;
   name: string;
   onIssue?: () => void;
   isNoCard?: boolean;
 }
 
-export default function WalletCard({ balance, currency, cardNumber, name, onIssue, isNoCard }: WalletCardProps) {
+export default function WalletCard({ balance, currency, cardNumber, expiryDate, cvv, name, onIssue, isNoCard }: WalletCardProps) {
   const router = useRouter();
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState(false);
 
-  if (isNoCard || !cardNumber || cardNumber.includes("4242")) {
+  if (isNoCard || !cardNumber) {
     return (
       <div className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-white dark:bg-card border border-foreground/5 flex flex-col items-center justify-center text-center gap-10 group overflow-hidden">
         {/* Background Decorative Blob */}
@@ -61,8 +63,8 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
 
   return (
     <div 
-      onClick={() => router.push("/cards")}
-      className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-primary text-primary-foreground overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98] cursor-pointer"
+      onClick={() => setShowBalance(!showBalance)}
+      className="relative w-full aspect-[1.6/1] fluid-card p-10 bg-primary text-primary-foreground overflow-hidden group transition-all hover:shadow-2xl hover:shadow-primary/40 active:scale-[0.98] cursor-pointer"
     >
       {/* Organic Background Textures */}
       <div className="absolute -right-20 -top-20 w-[30rem] h-[30rem] bg-white opacity-[0.03] rounded-full blur-3xl group-hover:opacity-[0.05] transition-opacity duration-1000" />
@@ -72,24 +74,32 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center backdrop-blur-md border border-white/5 p-3 shadow-xl shadow-black/20">
-                <img src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
+                <img loading="lazy" src="/Marjane-logo.png" alt="Marjane" className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="text-[8px] font-black uppercase tracking-[0.5em] text-primary-foreground/40 mb-1">Marjane Wallet</p>
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">{name}</h3>
             </div>
           </div>
-          <button 
-            onClick={() => setShowBalance(!showBalance)}
-            className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-          >
-            {showBalance ? <EyeOff className="w-5 h-5 text-primary-foreground/60" /> : <Eye className="w-5 h-5 text-primary-foreground/60" />}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all",
+              showBalance ? "bg-secondary text-primary shadow-lg" : "bg-white/10 text-white/40"
+            )}>
+              {showBalance ? "Unlocked" : "Encrypted"}
+            </div>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowBalance(!showBalance); }}
+              className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              {showBalance ? <EyeOff className="w-5 h-5 text-primary-foreground/60" /> : <Eye className="w-5 h-5 text-primary-foreground/60" />}
+            </button>
+          </div>
         </div>
 
         <div className="py-4 flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary-foreground/30 mb-2">Current Balance</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary-foreground/30 mb-2">Available Assets</p>
             <div className="flex items-baseline gap-4">
               <h2 className="text-6xl font-black tracking-tighter">
                 {showBalance ? balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "••••••"}
@@ -101,11 +111,24 @@ export default function WalletCard({ balance, currency, cardNumber, name, onIssu
             </div>
           </div>
           
-          {/* Asset Chip */}
-          <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 relative overflow-hidden shadow-inner opacity-80 group-hover:opacity-100 transition-opacity">
-              <div className="absolute inset-0 opacity-20 border-[0.5px] border-black/50 grid grid-cols-3 grid-rows-2" />
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 border-[1px] border-black/20 rounded-sm" />
-          </div>
+          {/* Info grid for CVV/EXP */}
+          {showBalance ? (
+            <div className="flex gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+               <div className="text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-primary-foreground/30 mb-1">EXP</p>
+                  <p className="text-lg font-black font-mono">{expiryDate || "MM/YY"}</p>
+               </div>
+               <div className="text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-primary-foreground/30 mb-1">CVV</p>
+                  <p className="text-lg font-black font-mono">{cvv || "•••"}</p>
+               </div>
+            </div>
+          ) : (
+            <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 relative overflow-hidden shadow-inner opacity-80 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 opacity-20 border-[0.5px] border-black/50 grid grid-cols-3 grid-rows-2" />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 border-[1px] border-black/20 rounded-sm" />
+            </div>
+          )}
         </div>
 
         <div className="mt-auto flex items-end justify-between border-t border-white/5 pt-4">

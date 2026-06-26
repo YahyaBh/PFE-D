@@ -1,29 +1,8 @@
 const db = require('../lib/db');
 const { v4: uuidv4 } = require('uuid');
 
-// ── Self-healing DB logic ──
-const fixLimitSchema = async () => {
-    try {
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS wallet_limits (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id VARCHAR(36) NOT NULL UNIQUE,
-                daily_transfer_limit DECIMAL(12,2) DEFAULT 5000.00,
-                monthly_transfer_limit DECIMAL(12,2) DEFAULT 50000.00,
-                daily_withdrawal_limit DECIMAL(12,2) DEFAULT 10000.00,
-                monthly_withdrawal_limit DECIMAL(12,2) DEFAULT 100000.00,
-                daily_deposit_limit DECIMAL(12,2) DEFAULT 20000.00,
-                monthly_deposit_limit DECIMAL(12,2) DEFAULT 200000.00,
-                currency VARCHAR(10) DEFAULT 'MAD',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-        console.log('Auto-migration: wallet_limits table ready.');
-    } catch (e) {
-        console.log('Limit schema note:', e.message);
-    }
-};
+// Schema handled by migrations
+const fixLimitSchema = async () => {};
 fixLimitSchema();
 
 // ── Helpers ──
@@ -96,8 +75,8 @@ const getUsage = async (userId, type, period = 'daily') => {
     const [rows] = await db.query(`
         SELECT SUM(amount) as total 
         FROM transactions 
-        WHERE (sender_wallet_id IN (SELECT id FROM wallets WHERE user_id = ?) 
-               OR (sender_wallet_id IS NULL AND receiver_wallet_id IN (SELECT id FROM wallets WHERE user_id = ?)))
+        WHERE (sender_wallet_id IN (SELECT id FROM wallet_accounts WHERE user_id = ?) 
+               OR (sender_wallet_id IS NULL AND receiver_wallet_id IN (SELECT id FROM wallet_accounts WHERE user_id = ?)))
         ${typeFilter}
         ${dateFilter}
         AND status = 'COMPLETED'
