@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Landmark, CreditCard, ArrowRight, Loader2, CheckCircle2, AlertCircle, Wallet, ArrowRight as ArrowRightIcon, ShieldCheck, Activity } from "lucide-react";
+import { X, Landmark, CreditCard, ArrowRight, Loader2, CheckCircle2, AlertCircle, Wallet, ArrowRight as ArrowRightIcon, Activity } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  Fingerprint, Search, CheckCircle2, XCircle, Clock,
+  Search, CheckCircle2, XCircle, Clock,
   Eye, RefreshCw, Shield, Loader2, ChevronLeft, ChevronRight, User
 } from "lucide-react";
 import { api } from "@/lib/api";

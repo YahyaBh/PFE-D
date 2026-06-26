@@ -5,12 +5,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Shield, Upload, Camera, MapPin, FileCheck, Loader2,
-  CheckCircle2, XCircle, Clock, AlertTriangle, ChevronRight, Trash2,
-  FileText, Image, ChevronLeft, Sparkles, User, Eye
+  CheckCircle2, XCircle, Clock, ChevronRight, Trash2,
+  FileText, ChevronLeft, Sparkles
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
-
-function cn(...inputs: any[]) { return inputs.filter(Boolean).join(" "); }
 
 const STEPS = [
   { id: "overview", label: "Overview", icon: Shield },

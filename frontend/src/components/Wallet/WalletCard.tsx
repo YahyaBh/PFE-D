@@ -1,6 +1,6 @@
 "use client";
 
-import { Wallet, Info, Eye, EyeOff, Plus, CreditCard, Sparkles, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Plus } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx, type ClassValue } from "clsx";

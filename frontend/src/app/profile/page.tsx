@@ -4,18 +4,14 @@ import { api } from "@/lib/api";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, User, Lock, Smartphone, Shield,
+  ArrowLeft, Lock, Smartphone, Shield,
   Loader2, CheckCircle2, XCircle, Edit3, Save, Eye, EyeOff,
   LogOut, AlertTriangle, ChevronDown, Activity,
-  Sparkles, Fingerprint, ShieldCheck, Zap, Bell, Clock, Monitor
+  Fingerprint, ShieldCheck, Zap, Bell, Clock, Monitor
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import NotificationTray from "@/components/Notifications/NotificationTray";
 import Link from "next/link";
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
 
 const SECTIONS = {
   kyc: {

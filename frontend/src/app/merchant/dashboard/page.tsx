@@ -5,14 +5,8 @@ import { api } from "@/lib/api";
 import { 
   TrendingUp, 
   Users, 
-  ArrowUpRight, 
   ShoppingBag, 
-  CreditCard,
   Target,
-  ArrowRight,
-  Loader2,
-  Calendar,
-  Layers,
   Zap,
   DollarSign,
   Clock

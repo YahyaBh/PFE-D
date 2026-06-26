@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Store, Search, Loader2, CheckCircle2, XCircle, Clock,
-  RefreshCw, Building2, Mail, Tag, AlertCircle, ChevronLeft, ChevronRight
+  RefreshCw, Building2, Mail, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { api } from "@/lib/api";
 

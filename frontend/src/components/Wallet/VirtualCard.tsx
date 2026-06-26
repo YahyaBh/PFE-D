@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, Shield, Snowflake, Trash2, CheckCircle, RefreshCw, Copy, Check, Loader2, Plus, Sparkles, X, ShieldCheck, Zap } from "lucide-react";
+import { Eye, EyeOff, Snowflake, Trash2, CheckCircle, RefreshCw, Copy, Check, Loader2, Plus, Zap } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

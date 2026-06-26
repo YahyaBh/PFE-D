@@ -5,8 +5,8 @@ import { api, BASE_URL } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, ArrowRight, Check, Store, User, Building2, Banknote,
-  FileText, Tag, Mail, Phone, Loader2, CheckCircle2, Shield,
-  Eye, EyeOff, ClipboardList
+  FileText, Tag, Mail, Phone, Loader2, Shield,
+  Eye, EyeOff
 } from "lucide-react";
 
 const BUSINESS_CATEGORIES = [

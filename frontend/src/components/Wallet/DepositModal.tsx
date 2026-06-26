@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, CreditCard, Landmark, ArrowRight, Loader2, AlertCircle, Wallet, Plus, ShieldCheck, ChevronRight, Activity, Zap, Copy, CheckCircle2 } from "lucide-react";
+import { X, CreditCard, Landmark, ArrowRight, Loader2, AlertCircle, Wallet, Plus, ShieldCheck, ChevronRight, Zap, Copy, CheckCircle2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 const QRCodeSVG = dynamic(() => import("qrcode.react").then(m => m.QRCodeSVG), { ssr: false }) as any;

@@ -7,17 +7,10 @@ import {
   ShieldAlert,
   ShieldCheck,
   RotateCcw,
-  AlertTriangle,
   Loader2,
-  Filter,
   ChevronLeft,
   ChevronRight,
   X,
-  User,
-  Mail,
-  Phone,
-  Building2,
-  Fingerprint,
   MoreHorizontal
 } from "lucide-react";
 import { api } from "@/lib/api";

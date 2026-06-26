@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import {
-  AlertTriangle, Search, CheckCircle2, XCircle,
-  Clock, MessageSquare, FileText, RefreshCw,
+  Search, CheckCircle2, XCircle,
+  MessageSquare, FileText, RefreshCw,
   User, ShieldAlert, ChevronLeft, ChevronRight,
   Check, X, Loader2, Send
 } from "lucide-react";

@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import {
-  History, Search, ArrowUpRight, ArrowDownLeft, Loader2, Clock,
-  CheckCircle2, ExternalLink, Filter, RefreshCw, User, QrCode,
-  X, Copy, Check, ChevronLeft, ChevronRight, ArrowRight, XCircle,
+  History, Search, ArrowDownLeft, Clock,
+  CheckCircle2, RefreshCw, QrCode,
+  X, Copy, Check, ChevronLeft, ChevronRight, XCircle,
   Receipt
 } from "lucide-react";
 import Link from "next/link";

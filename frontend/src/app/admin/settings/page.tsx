@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Moon, Sun, Bell, Shield, LogOut } from "lucide-react";
+import { Moon, Sun, Bell, Shield, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function AdminSettings() {

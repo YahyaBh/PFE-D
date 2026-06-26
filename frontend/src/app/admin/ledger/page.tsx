@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  BookOpen, ArrowUpRight, ArrowDownLeft, AlertCircle, Clock,
+  BookOpen, ArrowUpRight, ArrowDownLeft, AlertCircle,
   Search, Loader2, RefreshCw, CheckCircle2, Scale
 } from "lucide-react";
 import { api } from "@/lib/api";

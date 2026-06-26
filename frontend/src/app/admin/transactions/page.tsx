@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ArrowLeftRight, Search, Loader2, ChevronRight, ChevronLeft,
-  RotateCcw, Eye, X, CircleDot, Clock, AlertCircle, ExternalLink
+  RotateCcw, Eye, X, CircleDot
 } from "lucide-react";
 import { api } from "@/lib/api";
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { 
-  Megaphone, Send, Loader2, Users, ShieldAlert, Info, Clock, Target
+  Send, Loader2, Users, ShieldAlert
 } from "lucide-react";
 
 export default function BroadcastSystem() {
