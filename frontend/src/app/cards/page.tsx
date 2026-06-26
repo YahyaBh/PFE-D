@@ -11,8 +11,6 @@ import CardRefillModal from "@/components/Wallet/CardRefillModal";
 
 gsap.registerPlugin(ScrollTrigger);
 
-function cn(...inputs: any[]) { return inputs.filter(Boolean).join(" "); }
-
 const MOCK_CARDS = [
   {
     id: "1",

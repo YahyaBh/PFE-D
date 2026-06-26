@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, LogOut, ArrowUpRight, ArrowDownLeft, ArrowRightLeft, ShieldCheck, Smartphone, ChevronRight, Plus, CreditCard, ArrowRight, ArrowLeft, Sparkles, Loader2, User, Bell, QrCode, Landmark, MessageSquare, Clock, RefreshCw, Search, TrendingUp, TrendingDown, X } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowRightLeft, ShieldCheck, Smartphone, ChevronRight, CreditCard, ArrowRight, Sparkles, Bell, QrCode, Landmark, TrendingUp, TrendingDown, X } from "lucide-react";
 import TransferModal from "@/components/Wallet/TransferModal";
 import DepositModal from "@/components/Wallet/DepositModal";
 import RequestModal from "@/components/Wallet/RequestModal";
@@ -15,10 +15,6 @@ import Toast from "@/components/ui/Toast";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -291,51 +287,47 @@ export default function DashboardPage() {
   const rateTimeAgo = Math.floor((Date.now() - lastRateUpdate) / 60000);
 
   if (loading || !user) return (
-    <div className="min-h-screen font-sans antialiased skeleton-pulse" style={{ background: "#0A0E1A" }}>
+    <div className="min-h-screen font-sans antialiased" style={{ background: "#0A0E1A" }}>
       <div className="max-w-7xl mx-auto px-6 pt-24 pb-24">
-        {/* Skeleton Top Bar */}
         <div className="flex items-center justify-between mb-8">
-          <div className="h-8 w-40 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="skeleton h-8 w-40 rounded-full" />
           <div className="flex items-center gap-3">
-            <div className="h-8 w-28 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-8 w-8 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-8 w-20 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+            <div className="skeleton h-8 w-28 rounded-full" />
+            <div className="skeleton h-8 w-8 rounded-full skeleton-circle" />
+            <div className="skeleton h-8 w-20 rounded-full" />
           </div>
         </div>
-        {/* Skeleton Ticker */}
         <div className="flex items-center gap-4 mb-8">
-          {[1,2,3,4].map(i => <div key={i} className="h-6 w-28 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />)}
+          {[1,2,3,4].map(i => <div key={i} className="skeleton h-6 w-28 rounded-full" />)}
         </div>
-        {/* Skeleton Metrics Row */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-8">
-          <div className="lg:col-span-5 rounded-3xl p-7" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="h-4 w-24 mb-6 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-12 w-48 mb-4 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-4 w-32 mb-6 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-10 w-full rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="lg:col-span-5 rounded-3xl p-7 skeleton skeleton-card">
+            <div className="skeleton h-4 w-24 mb-6 rounded" />
+            <div className="skeleton h-12 w-48 mb-4 rounded" />
+            <div className="skeleton h-4 w-32 mb-6 rounded" />
+            <div className="skeleton h-10 w-full rounded-lg" />
           </div>
-          <div className="lg:col-span-3 rounded-3xl p-7" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="h-4 w-20 mb-6 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-10 w-24 mb-4 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-2 w-full mb-2 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-2 w-3/4 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="lg:col-span-3 rounded-3xl p-7 skeleton skeleton-card">
+            <div className="skeleton h-4 w-20 mb-6 rounded" />
+            <div className="skeleton h-10 w-24 mb-4 rounded" />
+            <div className="skeleton h-2 w-full mb-2 rounded" />
+            <div className="skeleton h-2 w-3/4 rounded" />
           </div>
-          <div className="lg:col-span-4 rounded-3xl p-7" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="h-4 w-24 mb-6 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
-            <div className="h-10 w-32 mb-4 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="lg:col-span-4 rounded-3xl p-7 skeleton skeleton-card">
+            <div className="skeleton h-4 w-24 mb-6 rounded" />
+            <div className="skeleton h-10 w-32 mb-4 rounded" />
             <div className="flex items-end gap-2 h-16 mb-2">
-              {[1,2,3,4,5,6,7].map(i => <div key={i} className="flex-1 rounded-t-sm" style={{ background: "rgba(255,255,255,0.04)" }} />)}
+              {[1,2,3,4,5,6,7].map(i => <div key={i} className="skeleton flex-1 rounded-t-sm" />)}
             </div>
           </div>
         </div>
-        {/* Skeleton Bottom */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-6">
-            <div className="rounded-3xl p-7 h-48" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} />
-            <div className="rounded-3xl p-7 h-48" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} />
+            <div className="skeleton rounded-3xl p-7 h-48 skeleton-card" />
+            <div className="skeleton rounded-3xl p-7 h-48 skeleton-card" />
           </div>
           <div className="lg:col-span-7">
-            <div className="rounded-3xl p-7 h-64" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} />
+            <div className="skeleton rounded-3xl p-7 h-64 skeleton-card" />
           </div>
         </div>
       </div>
@@ -373,8 +365,6 @@ export default function DashboardPage() {
         .delay-4 { animation-delay: 0.4s; }
         .delay-5 { animation-delay: 0.5s; }
         .delay-6 { animation-delay: 0.6s; }
-        @keyframes skeleton-pulse { 0% { opacity: 0.3; } 50% { opacity: 0.6; } 100% { opacity: 0.3; } }
-        .skeleton-pulse { animation: skeleton-pulse 1.8s ease-in-out infinite; }
         @keyframes balance-pop { 0% { opacity: 0.6; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
         .animate-balance-change { animation: balance-pop 0.35s ease-out; }
       `}</style>

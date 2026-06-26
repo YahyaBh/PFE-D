@@ -11,6 +11,7 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 
 const NOTIF_ICONS: Record<string, any> = {
   SYSTEM_ANNOUNCEMENT: Info,
@@ -85,12 +86,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => es.close();
   }, [checked]);
 
-  // Initial fetch & poll fallback
+  // Initial fetch (SSE handles subsequent updates)
   useEffect(() => {
     if (!checked) return;
     fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30000);
-    return () => clearInterval(interval);
   }, [checked]);
 
   // Click outside close for notif dropdown
@@ -316,7 +315,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">{children}</div>
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar"><ErrorBoundary>{children}</ErrorBoundary></div>
       </main>
     </div>
   );

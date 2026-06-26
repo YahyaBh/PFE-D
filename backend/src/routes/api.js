@@ -84,7 +84,7 @@ router.get('/transactions/recent', auth, transactionController.getRecentTransact
 router.get('/transactions/requests', auth, transactionController.getPendingRequests);
 router.post('/transactions/request', auth, transactionController.requestMoney);
 router.post('/transactions/process-request', auth, transactionController.processRequest);
-router.post('/transactions/qr-payment', auth, transactionController.processQRPayment);
+router.post('/transactions/qr-payment', auth, sensitiveLimiter, idempotency, validate('qrPayment'), transactionController.processQRPayment);
 router.get('/transactions/history', auth, transactionController.getTransactionHistory);
 
 // Admin Routes (Nuclear Options)

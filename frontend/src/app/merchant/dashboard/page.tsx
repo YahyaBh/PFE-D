@@ -48,28 +48,28 @@ export default function MerchantDashboard() {
   }, []);
 
   if (loading) return (
-    <div className="h-full space-y-8 animate-pulse p-6">
+    <div className="h-full space-y-8 p-6">
       <div className="p-10 rounded-[3rem]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="h-4 w-32 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} />
-        <div className="h-10 w-64 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="skeleton h-4 w-32 rounded-full mb-4" />
+        <div className="skeleton h-10 w-64 rounded-full" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[1,2,3,4].map(i => (
           <div key={i} className="rounded-[2rem] p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="h-4 w-24 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} />
-            <div className="h-8 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+            <div className="skeleton h-4 w-24 rounded-full mb-4" />
+            <div className="skeleton h-8 w-32 rounded-full" />
           </div>
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 rounded-[2.5rem] p-8" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="h-6 w-48 rounded-full mb-10" style={{ background: 'rgba(255,255,255,0.05)' }} />
-          <div className="h-[350px] rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} />
+          <div className="skeleton h-6 w-48 rounded-full mb-10" />
+          <div className="skeleton h-[350px] rounded-2xl" />
         </div>
         <div className="lg:col-span-4 rounded-[2.5rem] p-8" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="h-6 w-32 rounded-full mb-8" style={{ background: 'rgba(255,255,255,0.05)' }} />
+          <div className="skeleton h-6 w-32 rounded-full mb-8" />
           {[1,2,3,4].map(i => (
-            <div key={i} className="h-16 rounded-2xl mb-4" style={{ background: 'rgba(255,255,255,0.03)' }} />
+            <div key={i} className="skeleton h-16 rounded-2xl mb-4" />
           ))}
         </div>
       </div>

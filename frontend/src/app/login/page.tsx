@@ -37,7 +37,11 @@ function LoginContent() {
             headers: { Authorization: `Bearer ${token}` }
           });
           const merchantData = await merchantRes.json();
-          router.replace(merchantData?.merchant ? "/merchant/dashboard" : "/dashboard");
+          if (merchantData?.merchant?.status === 'APPROVED') {
+            router.replace("/merchant/dashboard");
+          } else {
+            router.replace("/dashboard");
+          }
         } catch {
           router.replace("/dashboard");
         }
@@ -133,6 +137,11 @@ function LoginContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
+      if (data.requireVerification) {
+        router.push(`/verify?userId=${data.userId}&step=email`);
+        return;
+      }
+
       if (data.requireMFA) {
         if (rememberMe) localStorage.setItem("rememberMe", "true");
         else { sessionStorage.setItem("rememberMe", "false"); localStorage.removeItem("rememberMe"); }
@@ -158,7 +167,14 @@ function LoginContent() {
             headers: { Authorization: `Bearer ${tokenVal}` }
           });
           const merchantData = await merchantRes.json();
-          router.push(merchantData?.merchant ? "/merchant/dashboard" : "/dashboard");
+          if (merchantData?.merchant?.status === 'APPROVED') {
+            router.push("/merchant/dashboard");
+          } else {
+            if (merchantData?.merchant?.status === 'PENDING_APPROVAL') {
+              setError('Your merchant account is pending approval.');
+            }
+            router.push("/dashboard");
+          }
         } catch {
           router.push("/dashboard");
         }

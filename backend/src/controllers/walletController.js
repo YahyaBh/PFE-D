@@ -112,7 +112,14 @@ const walletController = {
                 [id]
             );
             if (rows.length === 0) return res.status(404).json({ error: 'Wallet not found' });
-            res.json(rows[0]);
+
+            const wallet = rows[0];
+            // Only allow wallet owner or admin to view wallet details
+            if (wallet.user_id !== req.user.id && req.user.role !== 'ROLE_ADMIN') {
+                return res.status(403).json({ error: 'Access denied. You do not own this wallet.' });
+            }
+
+            res.json(wallet);
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Server error' });

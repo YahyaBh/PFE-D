@@ -5,21 +5,26 @@ import "./globals.css";
 const inter = Inter({ 
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
 
 const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-outfit",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Marjane Wallet",
   description: "Secure and easy digital payments",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+  themeColor: "#080C17",
 };
 
 import LoadingBar from "@/components/ui/LoadingBar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -28,14 +33,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable} scroll-smooth dark`}>
-      <body className="font-sans antialiased text-foreground bg-background">
+    <html lang="en" className={`${inter.variable} ${outfit.variable} scroll-smooth dark`} dir="ltr">
+      <body className="font-sans antialiased text-foreground bg-background selection:bg-primary/20 selection:text-foreground">
         <ThemeProvider>
           <ToastProvider>
-            <Suspense fallback={null}>
-              <LoadingBar />
-            </Suspense>
-            {children}
+            <ErrorBoundary>
+              <Suspense fallback={null}>
+                <LoadingBar />
+              </Suspense>
+              {children}
+            </ErrorBoundary>
           </ToastProvider>
         </ThemeProvider>
       </body>

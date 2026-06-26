@@ -85,6 +85,13 @@ const schemas = {
         reason: Joi.string().min(10).max(500).required(),
         description: Joi.string().max(2000).optional().allow(''),
     }),
+
+    qrPayment: Joi.object({
+        receiverId: Joi.string().uuid().optional(),
+        merchantId: Joi.string().uuid().optional(),
+        amount: Joi.number().positive().max(999999999.99).required(),
+        description: Joi.string().max(500).optional().allow(''),
+    }).or('receiverId', 'merchantId'),
 };
 
 function validate(schemaName) {

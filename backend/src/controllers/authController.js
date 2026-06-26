@@ -151,6 +151,16 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
+    // Check email verification
+    if (!user.is_email_verified) {
+      return res.json({
+        requireVerification: true,
+        userId: user.id,
+        email: user.email,
+        message: 'Please verify your email before logging in.'
+      });
+    }
+
     // Generate dynamic MFA code
     const mfaCode = generateCode();
 

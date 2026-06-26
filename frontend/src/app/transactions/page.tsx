@@ -4,11 +4,10 @@ import { api } from "@/lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Search, Filter, ArrowUpRight, ArrowDownLeft, Download,
-  ChevronLeft, ChevronRight, Loader2, FileText, Calendar, DollarSign,
-  CreditCard, QrCode, Landmark, ArrowRight, X, SlidersHorizontal, AlertTriangle, Menu,
-  BookOpen,
-  ShieldAlert, Clock, Sparkles, Bell, User, LogOut
+  Search, ArrowUpRight, ArrowDownLeft, Download,
+  ChevronLeft, ChevronRight, Loader2, FileText,
+  QrCode, Landmark, ArrowRight, X, SlidersHorizontal, AlertTriangle,
+  ShieldAlert, Sparkles, Bell, User, LogOut
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import Link from "next/link";

@@ -32,18 +32,53 @@
   --ring: 48 100% 50%;
 
   --radius: 2.5rem;
+  --radius-lg: 3rem;
+  --radius-sm: 1.5rem;
+  --radius-xs: 0.75rem;
+  
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-tap-highlight-color: transparent;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight leading-[1.1];
+  }
+  p {
+    @apply leading-relaxed;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
   }
 
   /* Hide number input spinners */
@@ -68,15 +103,89 @@
   
   /* Fluid Component Tokens */
   .fluid-card {
-    @apply rounded-[3rem] border-none shadow-[0_45px_100px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_45px_100px_-20px_rgba(0,0,0,0.4)] transition-all;
+    @apply rounded-[3rem] border border-white/5 bg-card/30 backdrop-blur-xl;
+    box-shadow: 0 45px 100px -20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, background 0.3s ease;
+  }
+  .fluid-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 45px 100px -20px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.15);
+    background: hsl(var(--card) / 0.4);
   }
   
   .fluid-button {
-    @apply bg-primary text-primary-foreground rounded-full font-bold px-8 py-4 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20;
+    @apply bg-primary text-primary-foreground rounded-full font-bold px-8 py-4 shadow-lg shadow-primary/20;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+  }
+  .fluid-button:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 40px rgba(255,215,0,0.15), 0 8px 32px rgba(255,215,0,0.1);
+  }
+  .fluid-button:active {
+    transform: scale(0.97);
+  }
+  .fluid-button:disabled {
+    opacity: 0.5;
+    transform: none;
+    pointer-events: none;
   }
 
   .fluid-glass {
     @apply bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-white/5;
+  }
+
+  .fluid-input {
+    @apply w-full bg-background/80 border border-border/60 rounded-2xl px-6 py-4 text-sm outline-none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .fluid-input:hover {
+    border-color: hsl(var(--border) / 0.8);
+  }
+  .fluid-input:focus {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.06);
+    background: hsl(var(--background));
+  }
+  .fluid-input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  .fluid-select {
+    @apply w-full bg-background/80 border border-border/60 rounded-2xl px-6 py-4 text-sm appearance-none outline-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748B' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1.25rem center;
+    padding-right: 2.75rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .fluid-select:focus {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.06);
+  }
+
+  .fluid-textarea {
+    @apply w-full bg-background/80 border border-border/60 rounded-2xl px-6 py-4 text-sm outline-none resize-none;
+    min-height: 100px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .fluid-textarea:focus {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.06);
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center text-center py-16 px-8;
+  }
+  .empty-state-icon {
+    @apply w-16 h-16 rounded-2xl flex items-center justify-center mb-4;
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+  .empty-state-title {
+    @apply text-lg font-semibold text-foreground/60 mb-1;
+  }
+  .empty-state-text {
+    @apply text-sm text-muted-foreground/60 max-w-xs;
   }
 
   .text-fluid-hero {
@@ -92,23 +201,41 @@
     @apply even:translate-y-12 odd:-translate-y-4;
   }
 
-  .fluid-input {
-      @apply w-full bg-background border border-border rounded-full p-6 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all placeholder:text-muted-foreground/40;
-  }
-
   /* Utility to hide scrollbars while keeping functionality */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
   .scrollbar-hide {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none;    /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Better badge/pill */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider;
+  }
+  .badge-success {
+    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+  }
+  .badge-warning {
+    @apply bg-amber-500/10 text-amber-400 border border-amber-500/20;
+  }
+  .badge-error {
+    @apply bg-red-500/10 text-red-400 border border-red-500/20;
+  }
+  .badge-info {
+    @apply bg-blue-500/10 text-blue-400 border border-blue-500/20;
+  }
+  .badge-neutral {
+    @apply bg-white/5 text-muted-foreground border border-white/10;
   }
 }
 
-/* Smooth, Organic Transitions */
+/* Smooth, Organic Transitions — only visual properties, never layout */
 * {
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  transition-property: opacity, transform, background, background-color, border-color, box-shadow, color, filter, text-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* Fluid Floating Animation */
@@ -267,7 +394,6 @@
   border-radius: 50%;
 }
 .skeleton-card {
-  height: 180px;
   border-radius: 24px;
 }
 

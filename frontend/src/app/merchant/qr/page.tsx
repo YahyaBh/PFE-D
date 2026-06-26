@@ -99,25 +99,25 @@ export default function MerchantQR() {
   if (loading) return (
     <div className="max-w-4xl mx-auto space-y-8 p-6">
       <div className="text-center">
-        <div className="h-8 w-64 rounded-full mb-3 mx-auto" style={{ background: 'rgba(255,255,255,0.05)' }} />
-        <div className="h-4 w-80 rounded-full mx-auto" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="skeleton h-8 w-64 rounded-full mb-3 mx-auto" />
+        <div className="skeleton h-4 w-80 rounded-full mx-auto" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
         <div
           className="p-12 rounded-[3rem] flex flex-col items-center"
           style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <div className="w-full aspect-square rounded-[2rem] mb-8" style={{ background: 'rgba(255,255,255,0.03)' }} />
-          <div className="h-6 w-48 rounded-full mx-auto" style={{ background: 'rgba(255,255,255,0.05)' }} />
-          <div className="h-4 w-32 rounded-full mx-auto mt-3" style={{ background: 'rgba(255,255,255,0.05)' }} />
+          <div className="skeleton w-full aspect-square rounded-[2rem] mb-8" />
+          <div className="skeleton h-6 w-48 rounded-full mx-auto" />
+          <div className="skeleton h-4 w-32 rounded-full mx-auto mt-3" />
         </div>
         <div className="space-y-6">
           {[1,2,3].map(i => (
             <div key={i} className="flex gap-4 p-2">
-              <div className="w-12 h-12 rounded-2xl shrink-0" style={{ background: 'rgba(255,215,0,0.05)' }} />
+              <div className="skeleton w-12 h-12 rounded-2xl shrink-0" style={{ background: 'rgba(255,215,0,0.05)' }} />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-                <div className="h-3 w-48 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                <div className="skeleton h-4 w-32 rounded-full" />
+                <div className="skeleton h-3 w-48 rounded-full" />
               </div>
             </div>
           ))}
